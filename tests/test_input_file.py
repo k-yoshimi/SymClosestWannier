@@ -597,3 +597,72 @@ def test_open_input_fileno(tmp_path):
 
     with open_input(str(tmp_path / "a.eig"), "eig") as fp:
         assert os.fstat(fp.fileno()).st_size == os.path.getsize(tmp_path / "a.eig.gz")
+
+
+# ==================================================
+@pytest.mark.parametrize(
+    "error, expected",
+    [(zlib.error("invalid distance too far back"), SymCWInputError), (OSError("disk error"), OSError)],
+)
+def test_input_path_tar_member_fails_while_reading(tmp_path, monkeypatch, error, expected):
+    import symclosestwannier.util.input_file as input_file_module
+
+    (tmp_path / "a.spn").write_bytes(b"data" * 1000)
+    compress(tmp_path / "a.spn", "tar.gz")
+
+    class FailingMember:
+        """
+        tar member which fails after the first read.
+        """
+
+        def __init__(self, member):
+            self.member = member
+            self.reads = 0
+
+        def read(self, size=-1):
+            self.reads += 1
+            if self.reads > 1:
+                raise error
+            return self.member.read(16)
+
+        def close(self):
+            self.member.close()
+
+    opened = {}
+    tar_open = tarfile.open
+
+    def record_tar_open(*args, **kwargs):
+        tf = tar_open(*args, **kwargs)
+        extractfile = tf.extractfile
+
+        def failing_extractfile(member):
+            opened["member"] = extractfile(member)
+            return FailingMember(opened["member"])
+
+        tf.extractfile = failing_extractfile
+        opened["archive"] = tf
+        return tf
+
+    created = []
+    mkstemp = input_file_module.tempfile.mkstemp
+
+    def record_mkstemp(*args, **kwargs):
+        fd, path = mkstemp(*args, **kwargs)
+        created.append(path)
+        return fd, path
+
+    monkeypatch.setattr(input_file_module.tarfile, "open", record_tar_open)
+    monkeypatch.setattr(input_file_module.tempfile, "mkstemp", record_mkstemp)
+
+    with pytest.raises(expected) as e:
+        with input_path(str(tmp_path / "a.spn"), "spn"):
+            pass
+
+    if expected is SymCWInputError:
+        assert f"cannot read {tmp_path / 'a.spn'}.tar.gz, the file may be broken" in str(e.value)
+        assert e.value.__cause__ is error
+    else:
+        # errors other than decompression errors are not changed.
+        assert e.value is error
+    assert opened["member"].closed and opened["archive"].closed
+    assert len(created) == 1 and not os.path.exists(created[0])
