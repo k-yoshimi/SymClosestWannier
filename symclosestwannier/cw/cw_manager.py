@@ -146,7 +146,7 @@ class CWManager:
                     dic = read_dict(full)
                 self.log(f"  * read '{full}'.", None)
             else:
-                raise Exception(f"cannot open {full}.")
+                raise FileNotFoundError(f"cannot open {full}.")
         else:
             dic = file_dict
 
@@ -185,4 +185,4 @@ class CWManager:
             try:
                 subprocess.run(cmd, capture_output=True, check=True, cwd=self._dirname, shell=True)
             except subprocess.CalledProcessError:
-                raise Exception("Formatting by black is failed.")
+                raise RuntimeError("Formatting by black is failed.")

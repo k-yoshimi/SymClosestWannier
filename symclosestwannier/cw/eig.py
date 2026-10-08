@@ -10,6 +10,8 @@ import datetime
 
 import numpy as np
 
+from symclosestwannier.util.exceptions import SymCWFileNotFoundError
+
 
 _default = {"num_k": 1, "num_bands": 1, "Ek": None}
 
@@ -69,7 +71,7 @@ class Eig(dict):
             with tarfile.open(file_name + "tar.gz", "rt") as fp:
                 eig_data = fp.readlines()
         else:
-            raise Exception("failed to read eig file: " + file_name)
+            raise SymCWFileNotFoundError("eig", file_name)
 
         eig_data = [[v for v in lst.rstrip("\n").split(" ") if v != ""] for lst in eig_data]
         eig_data = [[float(v) if "." in v else int(v) for v in lst] for lst in eig_data]

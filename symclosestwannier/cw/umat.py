@@ -14,6 +14,7 @@ import numpy as np
 
 from symclosestwannier.cw.win import Win
 from symclosestwannier.cw.eig import Eig
+from symclosestwannier.util.exceptions import SymCWFileNotFoundError
 
 
 _default = {
@@ -91,7 +92,7 @@ class Umat(dict):
             with tarfile.open(u_file_name + "tar.gz", "rt") as fp:
                 u_mat_data = fp.readlines()
         else:
-            raise Exception("failed to read u.mat file: " + u_file_name)
+            raise SymCWFileNotFoundError("u.mat", u_file_name)
 
         d = Umat._default().copy()
 
@@ -124,7 +125,7 @@ class Umat(dict):
                 with tarfile.open(u_dis_file_name + "tar.gz", "rt") as fp:
                     u_dis_mat_data = fp.readlines()
             else:
-                raise Exception("failed to read u_dis.mat file: " + u_dis_file_name)
+                raise SymCWFileNotFoundError("u_dis.mat", u_dis_file_name)
 
             num_k_, num_wann_, num_bands = [int(x) for x in u_dis_mat_data[1].split()]
 

@@ -12,6 +12,8 @@ import datetime
 
 import numpy as np
 
+from symclosestwannier.util.exceptions import SymCWFileNotFoundError
+
 
 _default = {"num_k": 1, "num_bands": 1, "num_wann": 1, "Ak": None}
 
@@ -72,7 +74,7 @@ class Amn(dict):
             with tarfile.open(file_name + "tar.gz", "rt") as fp:
                 amn_data = fp.readlines()
         else:
-            raise Exception("failed to read amn file: " + file_name)
+            raise SymCWFileNotFoundError("amn", file_name)
 
         num_bands, num_k, num_wann = [int(x) for x in amn_data[1].split()]
         amn_data = np.genfromtxt(amn_data[2:]).reshape(num_k, num_wann, num_bands, 5)

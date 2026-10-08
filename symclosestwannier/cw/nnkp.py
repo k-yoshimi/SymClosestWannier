@@ -10,6 +10,8 @@ import itertools
 import numpy as np
 import scipy.linalg
 
+from symclosestwannier.util.exceptions import SymCWFileNotFoundError, SymCWInputError
+
 
 _default = {
     "A": [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
@@ -109,7 +111,7 @@ class Nnkp(dict):
             with tarfile.open(file_name + "tar.gz", "rt") as fp:
                 nnkp_data = fp.readlines()
         else:
-            raise Exception("failed to read nnkp file: " + file_name)
+            raise SymCWFileNotFoundError("nnkp", file_name)
 
         d = Nnkp._default().copy()
 
@@ -205,8 +207,8 @@ class Nnkp(dict):
             bbmat = np.zeros([d["num_b"], 9])
             try:
                 Gp_idx = d["kpoints_wo_shift"].index([0.0, 0.0, 0.0])
-            except:
-                raise Exception("Gamma point must be included.")
+            except ValueError:
+                raise SymCWInputError(f"Gamma point must be included in the k points of {file_name}.") from None
 
             for i in range(d["num_b"]):
                 kv = d["nnkpts"][Gp_idx][i]

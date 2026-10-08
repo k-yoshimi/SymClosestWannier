@@ -51,6 +51,7 @@ from symclosestwannier.util.header import (
     sz_header,
     O_R_dependence_header,
 )
+from symclosestwannier.util.exceptions import SymCWInputError
 from symclosestwannier.util.utility import (
     fermi,
     fermi_dt,
@@ -146,7 +147,7 @@ class CWModel(dict):
             elif self._cwi["restart"] == "w90":
                 self._w90()
             else:
-                raise Exception(f"invalid restart = {self._cwi['restart']} was given. choose from 'cw'/'w90'.")
+                raise SymCWInputError(f"invalid restart = {self._cwi['restart']} was given. choose from 'cw'/'w90'.")
 
     # ==================================================
     def _w90(self):
@@ -672,7 +673,11 @@ class CWModel(dict):
 
         for k in range(num_k):
             if len(proj_band_idx[k]) < num_wann:
-                raise Exception(f"proj_min = {proj_min} is too large or PAOs are inappropriate.")
+                raise SymCWInputError(
+                    f"proj_min = {proj_min} is too large or PAOs are inappropriate: "
+                    f"only {len(proj_band_idx[k])} bands have projectability > proj_min at the {k+1}th k point, "
+                    f"while num_wann = {num_wann}."
+                )
             for n in range(num_bands):
                 if n not in proj_band_idx[k]:
                     Ak[k, n, :] = 0
@@ -1479,7 +1484,7 @@ class CWModel(dict):
                             dset = group.create_dataset(k, data=v, dtype=bool)
                         else:
                             dset = group.create_dataset(k, data=str(v))
-                    except:
+                    except Exception:
                         dset = group.create_dataset(k, data=str(v))
 
     # ==================================================
@@ -1507,7 +1512,7 @@ class CWModel(dict):
                         v = v.decode("utf-8")
                         try:
                             v = ast.literal_eval(v)
-                        except:
+                        except Exception:
                             v = v
 
                     if type(v) == np.bool_:
@@ -1728,7 +1733,7 @@ class CWModel(dict):
             header = sz_header
             o = self["ss"][2]
         else:
-            raise Exception(f"invalid type = {type} was given. choose from 'z'/'z_nonortho'/'s'/'n'/'sx'/'sy'/'sz'.")
+            raise ValueError(f"invalid type = {type} was given. choose from 'z'/'z_nonortho'/'s'/'n'/'sx'/'sy'/'sz'.")
 
         o_str = "# created by pw2cw \n"
         o_str += "# written {}\n".format(datetime.datetime.now().strftime("on %d%b%Y at %H:%M:%S"))

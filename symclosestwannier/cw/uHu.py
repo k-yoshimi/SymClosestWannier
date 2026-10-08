@@ -13,6 +13,7 @@ from itertools import islice
 import numpy as np
 
 from symclosestwannier.util.utility import FortranFileR
+from symclosestwannier.util.exceptions import SymCWFileNotFoundError
 
 
 _default = {"num_k": 1, "num_bands": 1, "num_b": 1, "Hkb1b2": None}
@@ -70,7 +71,7 @@ class UHu(dict):
         elif os.path.exists(file_name + ".tar.gz"):
             pass
         else:
-            raise Exception("failed to read uHu file: " + file_name)
+            raise SymCWFileNotFoundError("uHu", file_name)
 
         if self._formatted:
             f_uHu_in = open(file_name, "r")

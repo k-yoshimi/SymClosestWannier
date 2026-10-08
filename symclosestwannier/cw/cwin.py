@@ -3,6 +3,9 @@ CWin manages input file for pw2cw, seedname.cwin file.
 """
 
 import os
+import difflib
+
+from symclosestwannier.util.exceptions import SymCWFileNotFoundError, SymCWInputError
 
 
 _default = {
@@ -253,7 +256,7 @@ class CWin(dict):
             with open(file_name) as fp:
                 cwin_data = fp.readlines()
         else:
-            raise Exception("failed to read cwin file: " + file_name)
+            raise SymCWFileNotFoundError("cwin", file_name)
 
         cwin_data = [v.replace("\n", "") for v in cwin_data]
         cwin_data_lower = [v.lower().replace("\n", "") for v in cwin_data]
@@ -352,7 +355,12 @@ class CWin(dict):
                 if "[" in v or "]" in v:
                     v = "".join(v)
 
-            d[key] = self._str_to(key, v)
+            try:
+                d[key] = self._str_to(key, v)
+            except SymCWInputError as e:
+                raise SymCWInputError(f"{file_name}: {e}") from e
+            except (ValueError, IndexError) as e:
+                raise SymCWInputError(f"{file_name}: invalid value {key} = {v} ({e}).") from e
         # assert not (
         #    d["restart"] == "w90" and d["symmetrization"]
         # ), "Symmetrization cannot be performed when restart == w90."
@@ -371,14 +379,23 @@ class CWin(dict):
         v = str(v).replace("'", "").replace('"', "")
 
         if key not in CWin._default().keys():
-            raise Exception(f"invalid keyword = {key} was given.")
+            from symclosestwannier.cw.win import Win
+
+            msg = f"invalid keyword = {key} was given."
+            close = difflib.get_close_matches(key, CWin._default().keys(), n=3)
+            if key in Win._default().keys():
+                msg += f" {key} must be given in seedname.win."
+            elif close:
+                msg += " did you mean " + "/".join(f"'{k}'" for k in close) + "?"
+            msg += " run 'pw2cw -i' to list the keywords."
+            raise SymCWInputError(msg)
         elif key in ("seedname", "mp_seedname", "hr_input", "lindhard_smr_type", "cohp_head_atom", "cohp_tail_atom"):
             pass
         elif key in ("outdir", "mp_outdir"):
             v = v[:-1] if v[-1] == "/" else v
         elif key == "restart":
             if v not in ("cw", "w90"):
-                raise Exception(f"invalid restart = {v} was given. choose from 'cw'/'w90'.")
+                raise SymCWInputError(f"invalid restart = {v} was given. choose from 'cw'/'w90'.")
         elif key in (
             "proj_min",
             "cwf_mu_max",
@@ -410,36 +427,44 @@ class CWin(dict):
             v = float(v)
             if key == "cwf_delta":
                 if v > 1e-5:
-                    raise Exception(f"cwf_delta is too large. cwf_delta must be less than 1e-5.")
+                    raise SymCWInputError(f"cwf_delta is too large. cwf_delta must be less than 1e-5.")
             elif key == "lindhard_smr_fixed_en_width":
                 pass
                 # if v == 0.0:
                 #     raise Exception(f"lindhard_smr_fixed_en_width must be > 0.0.")
             elif key == "temperature":
                 if v < 0.0:
-                    raise Exception(f"temperature must be positive value.")
+                    raise SymCWInputError(f"temperature must be positive value.")
             elif key == "filling":
                 if v < 0.0:
-                    raise Exception(f"filling must be positive value.")
+                    raise SymCWInputError(f"filling must be positive value.")
         elif key in ("N1", "Nq1", "dos_num_fermi", "cohp_head_atom_idx", "cohp_tail_atom_idx", "cohp_num_fermi"):
             v = int(v)
         elif key == "ket_amn":
             v = v.replace(" ", "")
             if v == "auto":
                 pass
-            elif "(" in v or ")" in v:
-                v = [[oi.replace("]", "") for oi in o[1:].split(",")] for o in v[1:-1].split("],")]
-                v = [[str(o[0]), int(o[1]), int(o[2]), str(o[3] + "," + o[4])] for o in v]
             else:
-                v = [[oi.replace("]", "") for oi in o[1:].split(",")] for o in v[1:-1].split("],")]
-                v = [[str(o[0]), int(o[1]), int(o[2]), str(o[3])] for o in v]
+                raw = v
+                try:
+                    if "(" in v or ")" in v:
+                        v = [[oi.replace("]", "") for oi in o[1:].split(",")] for o in v[1:-1].split("],")]
+                        v = [[str(o[0]), int(o[1]), int(o[2]), str(o[3] + "," + o[4])] for o in v]
+                    else:
+                        v = [[oi.replace("]", "") for oi in o[1:].split(",")] for o in v[1:-1].split("],")]
+                        v = [[str(o[0]), int(o[1]), int(o[2]), str(o[3])] for o in v]
+                except (ValueError, IndexError):
+                    raise SymCWInputError(
+                        f"invalid ket_amn = {raw} was given. each ket must be [atom, sublattice, rank, orbital], "
+                        "e.g. [[C,1,1,pz],[C,2,1,pz]] or [[C,1,1,(pz,U)],[C,1,1,(pz,D)]] for spinful case, or use ket_amn = auto."
+                    ) from None
         elif key == "optimize_params_fixed":
             if "[" in v or "]" in v:
                 v = [str(o) for o in v[1:-1].split(",")]
             if len(v) > 0:
                 for vi in v:
                     if vi not in ("cwf_mu_min", "cwf_mu_max", "cwf_sigma_min", "cwf_sigma_max", "cwf_delta"):
-                        raise Exception(
+                        raise SymCWInputError(
                             f"invalid optimize_params_fixed: {vi} was given. choose from 'cwf_mu_min'/'cwf_mu_max'/'cwf_sigma_min'/'cwf_sigma_max'/'cwf_delta'."
                         )
 
@@ -448,14 +473,14 @@ class CWin(dict):
                 v = [str(o) for o in v[1:-1].split(",")]
             else:
                 if v not in ("all", "full"):
-                    raise Exception(f"invalid irreps = {v} was given. choose from 'all'/'full'.")
+                    raise SymCWInputError(f"invalid irreps = {v} was given. choose from 'all'/'full'.")
         else:
             if v.lower() in ("true", ".true."):
                 v = True
             elif v.lower() in ("false", ".false."):
                 v = False
             else:
-                raise Exception(f"invalid {key} = {v} was given. choose from 'true'/'.true.'/'false'/'.false.'.")
+                raise SymCWInputError(f"invalid {key} = {v} was given. choose from 'true'/'.true.'/'false'/'.false.'.")
 
         return v
 
