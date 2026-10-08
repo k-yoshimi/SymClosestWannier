@@ -39,7 +39,16 @@ class SymCWFileNotFoundError(SymCWError, FileNotFoundError):
             file_name (str): file name.
             hint (str, optional): additional message.
         """
+        self.kind = kind
+        self.file_name = file_name
+        self.hint = hint
+
         msg = f"cannot find the {kind} file: {file_name}"
         if hint:
             msg += f" ({hint})"
         super().__init__(msg)
+
+    # ==================================================
+    def __reduce__(self):
+        # keep the constructor arguments, e.g. for pickle in parallel processes.
+        return (self.__class__, (self.kind, self.file_name, self.hint))

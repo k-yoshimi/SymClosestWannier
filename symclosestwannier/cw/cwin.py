@@ -362,12 +362,14 @@ class CWin(dict):
             except (ValueError, IndexError) as e:
                 raise SymCWInputError(f"{file_name}: invalid value {key} = {v} ({e}).") from e
 
-        assert not (
-            d["disentangle"] and (d["cwf_mu_max"] is None or d["cwf_mu_min"] is None)
-        ), "cwf_mu_max and cwf_mu_min must be specified when disentangle == true."
+        if d["disentangle"] and (d["cwf_mu_max"] is None or d["cwf_mu_min"] is None):
+            raise SymCWInputError(f"{file_name}: cwf_mu_max and cwf_mu_min must be specified when disentangle = true.")
 
         if d["cwf_mu_max"] is not None and d["cwf_mu_min"] is not None:
-            assert not (d["cwf_mu_max"] < d["cwf_mu_min"]), "check disentanglement windows (cwf_mu_max < cwf_mu_min !)"
+            if d["cwf_mu_max"] < d["cwf_mu_min"]:
+                raise SymCWInputError(
+                    f"{file_name}: check disentanglement windows, cwf_mu_max = {d['cwf_mu_max']} < cwf_mu_min = {d['cwf_mu_min']}."
+                )
 
         return d
 
