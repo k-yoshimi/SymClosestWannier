@@ -502,7 +502,6 @@ class CWModel(dict):
             self._cwm.log("{0:6d}        {1:15.8f}".format(m + 1, occ_m), None, file=self._outfile, mode="a")
 
         occ_all = np.sum(np.real(np.sum([nk[:, m, m] for m in range(self._cwi["num_wann"])]))) / self._cwi["num_k"]
-        print(f"occ_all = {occ_all}")
         self._cwm.log(
             "     Sum        {0:15.8f}".format(
                 occ_all,
@@ -778,7 +777,7 @@ class CWModel(dict):
             # fk = np.array([np.diag(fermi(eki - ef_shift, T=0.0)) for eki in Ek], dtype=float)
             n_list = []
             for ief in range(cohp_num_fermi + 1):
-                print(f"{ief+1}/{cohp_num_fermi + 1}")
+                self._cwm.log(f"      {ief+1}/{cohp_num_fermi + 1}", None)
                 ef = fermi_energy_list[ief]
                 # if i > 19:
                 #     continue
