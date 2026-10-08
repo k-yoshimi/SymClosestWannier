@@ -8,6 +8,18 @@ import difflib
 from symclosestwannier.util.exceptions import SymCWFileNotFoundError, SymCWInputError
 
 
+# keywords given by space-separated integers, "list" or "range" ([[min_1, max_1, N1], [min_2, max_2, N2]]).
+_mesh_keys = {
+    "dos_kmesh": "list",
+    "cohp_kmesh": "list",
+    "lindhard_kmesh": "list",
+    "fermi_surface_kmesh": "range",
+    "fermi_surface_view": "list",
+    "lindhard_surface_qmesh": "range",
+    "lindhard_surface_view": "list",
+}
+
+
 _default = {
     "seedname": "cwannier",
     "outdir": "./",
@@ -167,10 +179,10 @@ class CWin(dict):
                 - verbose           : verbose calculation info (bool, optional), [False].
                 - parallel          : use parallel code? (bool), [False].
                 - formatter         : format by using black? (bool), [False].
-                - calc_spreads      : calculate spreads? (bool), [True].
+                - calc_spreads      : calculate spreads? (bool), [False].
                 - transl_inv        : use Eq.(31) of Marzari&Vanderbilt PRB 56, 12847 (1997) for band-diagonal position matrix elements? (bool), [False].
                 - use_degen_pert    : use degenerate perturbation theory when bands are degenerate and band derivatives are needed? (bool), [False].
-                - degen_thr         : threshold to exclude degenerate bands from the calculation, [0.0].
+                - degen_thr         : threshold to exclude degenerate bands from the calculation, [0.0001].
                 - tb_gauge          : use tb gauge? (bool), [False].
                 - write_info_data   : write info and data to seedname.hdf5 (hdf5 format) ? (bool), [False].
                 - write_hr          : write seedname_hr.py ? (bool), [False].
@@ -272,30 +284,33 @@ class CWin(dict):
                 continue
 
             if "begin qpoint_path" in line:
-                q_data = cwin_data[
-                    cwin_data_lower.index("begin qpoint_path") + 1 : cwin_data_lower.index("end qpoint_path")
-                ]
-                q_data = [[vi for vi in v.split()] for v in q_data]
-                qpoint = {}
-                qpoint_path = ""
-                cnt = 1
-                for X, qi1, qi2, qi3, Y, qf1, qf2, qf3 in q_data:
-                    if cnt == 1:
-                        qpoint_path += f"{X}-{Y}-"
-                    else:
-                        if qpoint_path.split("-")[-2] == X:
-                            qpoint_path += f"{Y}-"
+                try:
+                    q_data = cwin_data[
+                        cwin_data_lower.index("begin qpoint_path") + 1 : cwin_data_lower.index("end qpoint_path")
+                    ]
+                    q_data = [[vi for vi in v.split()] for v in q_data]
+                    qpoint = {}
+                    qpoint_path = ""
+                    cnt = 1
+                    for X, qi1, qi2, qi3, Y, qf1, qf2, qf3 in q_data:
+                        if cnt == 1:
+                            qpoint_path += f"{X}-{Y}-"
                         else:
-                            qpoint_path = qpoint_path[:-1]
-                            qpoint_path += f"|{X}-{Y}-"
-                    if X not in qpoint:
-                        qpoint[X] = [float(qi1), float(qi2), float(qi3)]
-                    if Y not in qpoint:
-                        qpoint[Y] = [float(qf1), float(qf2), float(qf3)]
+                            if qpoint_path.split("-")[-2] == X:
+                                qpoint_path += f"{Y}-"
+                            else:
+                                qpoint_path = qpoint_path[:-1]
+                                qpoint_path += f"|{X}-{Y}-"
+                        if X not in qpoint:
+                            qpoint[X] = [float(qi1), float(qi2), float(qi3)]
+                        if Y not in qpoint:
+                            qpoint[Y] = [float(qf1), float(qf2), float(qf3)]
 
-                    cnt += 1
+                        cnt += 1
 
-                qpoint_path = qpoint_path[:-1]
+                    qpoint_path = qpoint_path[:-1]
+                except (ValueError, IndexError) as e:
+                    raise SymCWInputError(f"{file_name}: invalid qpoint_path block ({e}).") from e
 
                 d["qpoint"] = qpoint
                 d["qpoint_path"] = qpoint_path
@@ -318,49 +333,26 @@ class CWin(dict):
             elif ":" in line:
                 v = line.split(":")[1].split("!")[0]
 
-            if key == "dos_kmesh":
-                d["dos_kmesh"] = [int(x) for x in v.split() if x != ""]
-                continue
-
-            if key == "cohp_kmesh":
-                d["cohp_kmesh"] = [int(x) for x in v.split() if x != ""]
-                continue
-
-            if key == "fermi_surface_kmesh":
-                kmin_1, kmax_1, N1, kmin_2, kmax_2, N2 = [int(x) for x in v.split() if x != ""]
-                d["fermi_surface_kmesh"] = [[kmin_1, kmax_1, N1], [kmin_2, kmax_2, N2]]
-                continue
-            if key == "fermi_surface_view":
-                d["fermi_surface_view"] = [int(x) for x in v.split() if x != ""]
-                continue
-
-            if key == "lindhard_kmesh":
-                d["lindhard_kmesh"] = [int(x) for x in v.split() if x != ""]
-                continue
-            if key == "lindhard_surface_qmesh":
-                qmin_1, qmax_1, N1, qmin_2, qmax_2, N2 = [int(x) for x in v.split() if x != ""]
-                d["lindhard_surface_qmesh"] = [[qmin_1, qmax_1, N1], [qmin_2, qmax_2, N2]]
-                continue
-            if key == "lindhard_surface_view":
-                d["lindhard_surface_view"] = [int(x) for x in v.split() if x != ""]
-                continue
-
-            v = v.replace(" ", "")
-
-            if key == "ket_amn":
-                if "[" in v or "]" in v:
-                    v = "".join(v)
-
-            if key == "optimize_params_fixed":
-                if "[" in v or "]" in v:
-                    v = "".join(v)
-
             try:
+                if key in _mesh_keys:
+                    d[key] = CWin._str_to_mesh(key, v)
+                    continue
+
+                v = v.replace(" ", "")
+
+                if key == "ket_amn":
+                    if "[" in v or "]" in v:
+                        v = "".join(v)
+
+                if key == "optimize_params_fixed":
+                    if "[" in v or "]" in v:
+                        v = "".join(v)
+
                 d[key] = self._str_to(key, v)
             except SymCWInputError as e:
                 raise SymCWInputError(f"{file_name}: {e}") from e
             except (ValueError, IndexError) as e:
-                raise SymCWInputError(f"{file_name}: invalid value {key} = {v} ({e}).") from e
+                raise SymCWInputError(f"{file_name}: invalid value {key} = {v.strip()} ({e}).") from e
 
         if d["disentangle"] and (d["cwf_mu_max"] is None or d["cwf_mu_min"] is None):
             raise SymCWInputError(f"{file_name}: cwf_mu_max and cwf_mu_min must be specified when disentangle = true.")
@@ -372,6 +364,27 @@ class CWin(dict):
                 )
 
         return d
+
+    # ==================================================
+    @classmethod
+    def _str_to_mesh(cls, key, v):
+        """
+        convert space-separated integers of mesh/view keywords.
+
+        Args:
+            key (str): keyword in _mesh_keys.
+            v (str): value, e.g. "1 1 1" or "-1 1 10 -1 1 10".
+
+        Returns:
+            list: [n1, n2, ...] or [[min_1, max_1, N1], [min_2, max_2, N2]].
+        """
+        v = [int(x) for x in v.split() if x != ""]
+        if _mesh_keys[key] == "range":
+            if len(v) != 6:
+                raise SymCWInputError(f"{key} needs 6 integers, min_1 max_1 N1 min_2 max_2 N2.")
+            v = [v[:3], v[3:]]
+
+        return v
 
     # ==================================================
     def _str_to(self, key, v):

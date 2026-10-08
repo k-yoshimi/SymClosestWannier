@@ -11,18 +11,18 @@
   - proj_min          : minimum value of projectability: [0.0].
   - cwf_mu_max      : top of the energy window (float), [None].
   - cwf_mu_min      : bottom of the energy window (float), [None].
-  - cwf_sigma_max : smearing temperature for the top of the energy window (float), [5.0].
-  - cwf_sigma_min : smearing temperature for the bottom of the energy window (float), [0.01].
+  - cwf_sigma_max : smearing temperature for the top of the energy window (float), [1.0].
+  - cwf_sigma_min : smearing temperature for the bottom of the energy window (float), [0.0].
   - cwf_delta             : small constant to avoid ill-conditioning of overlap matrices (< 1e-5) (float), [0.0].
   - svd               : implement singular value decomposition ? otherwise adopt Lowdin's orthogonalization method (bool), [False].
   - verbose           : verbose calculation info (bool, optional), [False].
   - parallel          : use parallel code? (bool), [False].
   - formatter         : format by using black? (bool), [False].
-  - calc_spreads      : calculate spreads? (bool), [True].
+  - calc_spreads      : calculate spreads? (bool), [False].
   - write_info_data   : write info and data to seedname.hdf5 (hdf5 format) ? (bool), [False].
-  - transl_inv        : use Eq.(31) of Marzari&Vanderbilt PRB 56, 12847 (1997) for band-diagonal position matrix elements? (bool), [True].
+  - transl_inv        : use Eq.(31) of Marzari&Vanderbilt PRB 56, 12847 (1997) for band-diagonal position matrix elements? (bool), [False].
   - use_degen_pert    : use degenerate perturbation theory when bands are degenerate and band derivatives are needed? (bool), [False].
-  - degen_thr         : threshold to exclude degenerate bands from the calculation, [0.0].
+  - degen_thr         : threshold to exclude degenerate bands from the calculation, [0.0001].
   - tb_gauge          : use tb gauge? (bool), [False].
   - write_hr          : write seedname_hr.py ? (bool), [False].
   - write_sr          : write seedname_sr.py ? (bool), [False].
@@ -40,10 +40,10 @@
   - mp_outdir         : output files for multipie are written to this directory, relative to the directory of seedname.cwin (str). ["./"].
   - mp_seedname       : seedname for seedname_model.py, seedname_samb.py and seedname_matrix.py files (str).
   - ket_amn           : ket basis list in the seedname.amn file. If ket_amn == auto, the list of orbitals are set automatically, or it can be set manually. The format of each ket must be same as the "ket" in sambname_model.py file. See sambname["info"]["ket"] in sambname_model.py file for the format (list), [None].
-  - irreps            : list of irreps to be considered (str/list), [None].
+  - irreps            : list of irreps to be considered (str/list), ["all"].
 
 - only used for band dispersion calculation.
-  - a                 : lattice parameter (in Ang) used to correct units of k points in reference band data, [1.0].
+  - a                 : lattice parameter (in Ang) used to correct units of k points in reference band data, [None].
   - N1                : number of divisions for high symmetry lines (int, optional), [50].
   - calc_spin_2d      : add expectation value of spin operator given by *.spn in output file ? (bool). [False].
 

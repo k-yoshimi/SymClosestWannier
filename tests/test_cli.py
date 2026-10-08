@@ -67,6 +67,12 @@ def test_missing_cwin(command, tmp_path, monkeypatch):
         ("restart = foo", "invalid restart = foo was given."),
         ("disentangle = true", "cwf_mu_max and cwf_mu_min must be specified when disentangle = true."),
         ("disentangle = true\ncwf_mu_min = 1.0\ncwf_mu_max = 0.0", "check disentanglement windows"),
+        ("dos_kmesh = 1 a 1", "invalid value dos_kmesh = 1 a 1"),
+        ("fermi_surface_kmesh = -1 1 10", "fermi_surface_kmesh needs 6 integers"),
+        ("begin qpoint_path\nG 0 0 0 X 0.5 0\nend qpoint_path", "invalid qpoint_path block"),
+        ("begin qpoint_path\nG 0 0 0 X 0.5 0 0", "invalid qpoint_path block"),
+        ("begin qpoint_path\nG 0 0 0 X 0.5 a 0\nend qpoint_path", "invalid qpoint_path block"),
+        ("lindhard_surface_qmesh = -1 1 10 -1 1", "lindhard_surface_qmesh needs 6 integers"),
         ("fermi_energy = 0.0", "invalid keyword = fermi_energy was given. fermi_energy must be given in seedname.win."),
     ],
 )
