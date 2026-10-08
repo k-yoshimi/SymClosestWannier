@@ -2279,7 +2279,7 @@ def gyrotropic_get_K(cwi, operators):
 
     gyro_K_orb *= fac
 
-    """
+    r"""
     --------------------------------------------------------------------
     At this point gyro_K_spn contains
 
