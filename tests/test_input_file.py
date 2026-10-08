@@ -19,7 +19,7 @@ from symclosestwannier.cw.uHu import UHu
 from symclosestwannier.util.exceptions import SymCWFileNotFoundError, SymCWInputError
 from symclosestwannier.util.input_file import open_input, input_path
 
-from conftest import DATA_DIR, assert_hr_equal
+from conftest import DATA_DIR, EXAMPLES_DIR, assert_hr_equal
 
 
 # ==================================================
@@ -297,3 +297,42 @@ def test_uHu_unformatted_compressed_equals_plain(tmp_path, kind):
 
     assert expected.shape == (1, 2, 2, 2, 2)
     np.testing.assert_array_equal(result, expected)
+
+
+# ==================================================
+def write_umat(path, num_wann=2, num_bands=3, num_k=1):
+    rng = np.random.default_rng(1)
+
+    def block(nrow, ncol):
+        return "".join(f" {rng.standard_normal():.10f} {rng.standard_normal():.10f}\n" for _ in range(nrow * ncol))
+
+    u = f"header\n {num_k} {num_wann} {num_wann}\n\n"
+    u_dis = f"header\n {num_k} {num_wann} {num_bands}\n\n"
+    for _ in range(num_k):
+        u += " 0.0 0.0 0.0\n" + block(num_wann, num_wann) + "\n"
+        u_dis += " 0.0 0.0 0.0\n" + block(num_bands, num_wann) + "\n"
+    (path / "ch4_sl_u.mat").write_text(u)
+    (path / "ch4_sl_u_dis.mat").write_text(u_dis)
+
+
+# ==================================================
+@pytest.mark.parametrize("kind", ["gz", "tar.gz"])
+def test_umat_compressed_equals_plain(tmp_path, kind):
+    from symclosestwannier.cw.umat import Umat
+
+    plain = tmp_path / "plain"
+    packed = tmp_path / "packed"
+    for d in (plain, packed):
+        d.mkdir()
+        # seedname.win is read for dis_num_iter (= 0 for ch4_sl).
+        shutil.copy(os.path.join(EXAMPLES_DIR, "ch4_sl", "ch4_sl.win"), d)
+        write_umat(d)
+    for name in ("ch4_sl_u.mat", "ch4_sl_u_dis.mat"):
+        compress(packed / name, kind)
+
+    expected = Umat(str(plain), "ch4_sl")
+    result = Umat(str(packed), "ch4_sl")
+
+    assert np.array(expected["Uk"]).shape == (1, 3, 2)
+    for key in ("Uoptk", "Udisk", "Uk"):
+        np.testing.assert_array_equal(np.array(result[key]), np.array(expected[key]))
