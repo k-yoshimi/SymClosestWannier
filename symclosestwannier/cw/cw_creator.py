@@ -99,7 +99,7 @@ def cw_creator(seedname="cwannier"):
         cw_model.write_or(cw_model["Sr"], filename)  # , header=CWModel._sr_header())
 
         filename = f"{cwi['seedname']}_sr_R_dep.dat.cw"
-        cw_model.write_O_R_dependence(cw_model["sr"], filename, header=CWModel._O_R_dependence_header())
+        cw_model.write_O_R_dependence(cw_model["Sr"], filename, header=CWModel._O_R_dependence_header())
 
     if cwi["write_u_matrices"] and cwi["restart"] != "w90":
         file_names = (f"{cwi['seedname']}_u.mat.cw", f"{cwi['seedname']}_u_dis.mat.cw")
