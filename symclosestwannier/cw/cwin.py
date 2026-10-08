@@ -361,9 +361,6 @@ class CWin(dict):
                 raise SymCWInputError(f"{file_name}: {e}") from e
             except (ValueError, IndexError) as e:
                 raise SymCWInputError(f"{file_name}: invalid value {key} = {v} ({e}).") from e
-        # assert not (
-        #    d["restart"] == "w90" and d["symmetrization"]
-        # ), "Symmetrization cannot be performed when restart == w90."
 
         assert not (
             d["disentangle"] and (d["cwf_mu_max"] is None or d["cwf_mu_min"] is None)

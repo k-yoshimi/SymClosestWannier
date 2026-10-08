@@ -302,111 +302,6 @@ class CWModel(dict):
         Ek = np.array(self._cwi["Ek"], dtype=float)
         Ak = np.array(self._cwi["Ak"], dtype=complex)
 
-        # 30 orbitals
-        # Ak_tmp = np.zeros(Ak.shape, dtype=complex)
-        # Ak_tmp =  Ak.copy()
-        # 0-4
-        # 5-9
-        # 10-14
-        # #
-        # 15-17
-        # #
-        # 18-20
-        # Ak_tmp[:,:,18] = (Ak[:,:,18] + Ak[:,:,21]) / np.sqrt(2) # (pz@Sb4h1 + pz@Sb4h2)/sqrt(2)
-        # Ak_tmp[:,:,19] = (Ak[:,:,19] - Ak[:,:,22]) / np.sqrt(2) # (px@Sb4h1 - px@Sb4h2)/sqrt(2)
-        # Ak_tmp[:,:,20] = (Ak[:,:,20] - Ak[:,:,23]) / np.sqrt(2) # (py@Sb4h1 - py@Sb4h2)/sqrt(2)
-        # 21-23
-        # Ak_tmp[:,:,21] = (Ak[:,:,18] - Ak[:,:,21]) / np.sqrt(2) # (pz@Sb4h1 - pz@Sb4h2)/sqrt(2)
-        # Ak_tmp[:,:,22] = (Ak[:,:,19] + Ak[:,:,22]) / np.sqrt(2) # (px@Sb4h1 + px@Sb4h2)/sqrt(2)
-        # Ak_tmp[:,:,23] = (Ak[:,:,20] + Ak[:,:,23]) / np.sqrt(2) # (py@Sb4h1 + py@Sb4h2)/sqrt(2)
-        # 24-26
-        # Ak_tmp[:,:,24] = (Ak[:,:,24] + Ak[:,:,27]) / np.sqrt(2) # (pz@Sb4h1 + pz@Sb4h2)/sqrt(2)
-        # Ak_tmp[:,:,25] = (Ak[:,:,25] - Ak[:,:,28]) / np.sqrt(2) # (px@Sb4h1 - px@Sb4h2)/sqrt(2)
-        # Ak_tmp[:,:,26] = (Ak[:,:,26] - Ak[:,:,29]) / np.sqrt(2) # (py@Sb4h1 - py@Sb4h2)/sqrt(2)
-        # 27-29
-        # Ak_tmp[:,:,27] = (Ak[:,:,24] - Ak[:,:,27]) / np.sqrt(2) # (pz@Sb4h1 - pz@Sb4h2)/sqrt(2)
-        # Ak_tmp[:,:,28] = (Ak[:,:,25] + Ak[:,:,28]) / np.sqrt(2) # (px@Sb4h1 + px@Sb4h2)/sqrt(2)
-        # Ak_tmp[:,:,29] = (Ak[:,:,26] + Ak[:,:,29]) / np.sqrt(2) # (py@Sb4h1 + py@Sb4h2)/sqrt(2)
-        # #Ak_tmp[:,:,12:] = 0.0
-        # Ak = Ak_tmp
-        # self._cwi["Ak"] = Akf
-        # Ak = np.zeros((Ak.shape[0],Ak.shape[1],12))
-        # Ak = Ak_tmp[:,:,:12]
-        # self._cwi["num_wann"] = 12
-
-        # Mz-odd p orbital (12 orbitals)
-        # Ak_tmp = np.zeros(Ak.shape, dtype=complex)
-        # Ak_tmp = Ak.copy()
-        # Ak[:, :, 6] = (Ak_tmp[:, :, 6] + Ak_tmp[:, :, 9]) / np.sqrt(2)  # (pz@Sb4h1 + pz@Sb4h2)/sqrt(2)
-        # Ak[:, :, 7] = (Ak_tmp[:, :, 7] - Ak_tmp[:, :, 10]) / np.sqrt(2)  # (px@Sb4h1 - px@Sb4h2)/sqrt(2)
-        # Ak[:, :, 8] = (Ak_tmp[:, :, 8] - Ak_tmp[:, :, 11]) / np.sqrt(2)  # (py@Sb4h1 - py@Sb4h2)/sqrt(2)
-        # Ak[:, :, 9] = (Ak_tmp[:, :, 12] + Ak_tmp[:, :, 15]) / np.sqrt(2)  # (pz@Sb4h3 + pz@Sb4h4)/sqrt(2)
-        # Ak[:, :, 10] = (Ak_tmp[:, :, 13] - Ak_tmp[:, :, 16]) / np.sqrt(2)  # (px@Sb4h3 - px@Sb4h4)/sqrt(2)
-        # Ak[:, :, 11] = (Ak_tmp[:, :, 14] - Ak_tmp[:, :, 17]) / np.sqrt(2)  # (py@Sb4h3 - py@Sb4h4)/sqrt(2)
-        # Ak = Ak[:, :, :12]
-        # self._cwi["num_wann"] = 12
-        # self._cwi["Ak"] = Ak
-
-        # Mz-odd p orbital (10 orbitals)
-        # Ak_tmp = np.zeros(Ak.shape, dtype=complex)
-        # Ak_tmp = Ak.copy()
-        # Ak[:, :, 6] = (Ak_tmp[:, :, 7] - Ak_tmp[:, :, 10]) / np.sqrt(2)  # (px@Sb4h1 - px@Sb4h2)/sqrt(2)
-        # Ak[:, :, 7] = (Ak_tmp[:, :, 8] - Ak_tmp[:, :, 11]) / np.sqrt(2)  # (py@Sb4h1 - py@Sb4h2)/sqrt(2)
-        # Ak[:, :, 8] = (Ak_tmp[:, :, 13] - Ak_tmp[:, :, 16]) / np.sqrt(2)  # (px@Sb4h3 - px@Sb4h4)/sqrt(2)
-        # Ak[:, :, 9] = (Ak_tmp[:, :, 14] - Ak_tmp[:, :, 17]) / np.sqrt(2)  # (py@Sb4h3 - py@Sb4h4)/sqrt(2)
-        # Ak = Ak[:, :, :10]
-        # self._cwi["num_wann"] = 10
-        # self._cwi["Ak"] = Ak
-
-        # Mz-odd p orbital (13 orbitals)
-        # Ak_tmp = np.zeros(Ak.shape, dtype=complex)
-        # Ak_tmp = np.zeros(Ak.shape, dtype=complex)
-        # Ak_tmp = Ak.copy()
-        # Ak[:, :, 6] = (Ak_tmp[:, :, 6] + Ak_tmp[:, :, 9]) / np.sqrt(2)  # (pz@Sb4h1 + pz@Sb4h2)/sqrt(2)
-        # Ak[:, :, 7] = (Ak_tmp[:, :, 7] - Ak_tmp[:, :, 10]) / np.sqrt(2)  # (px@Sb4h1 - px@Sb4h2)/sqrt(2)
-        # Ak[:, :, 8] = (Ak_tmp[:, :, 8] - Ak_tmp[:, :, 11]) / np.sqrt(2)  # (py@Sb4h1 - py@Sb4h2)/sqrt(2)
-        # Ak[:, :, 9] = (Ak_tmp[:, :, 12] + Ak_tmp[:, :, 15]) / np.sqrt(2)  # (pz@Sb4h3 + pz@Sb4h4)/sqrt(2)
-        # Ak[:, :, 10] = (Ak_tmp[:, :, 13] - Ak_tmp[:, :, 16]) / np.sqrt(2)  # (px@Sb4h3 - px@Sb4h4)/sqrt(2)
-        # Ak[:, :, 11] = (Ak_tmp[:, :, 14] - Ak_tmp[:, :, 17]) / np.sqrt(2)  # (py@Sb4h3 - py@Sb4h4)/sqrt(2)
-        # Ak[:, :, 12] = Ak_tmp[:, :, 18]
-        # Ak = Ak[:, :, :13]
-        # self._cwi["num_wann"] = 13
-        # self._cwi["Ak"] = Ak
-
-        # Mz-even p orbital
-        # Ak_tmp = np.zeros(Ak.shape, dtype=complex)
-        # Ak_tmp = Ak.copy()
-        # Ak[:, :, 0] = Ak_tmp[:, :, 0]  # V1: du
-        # Ak[:, :, 1] = Ak_tmp[:, :, 3]  # V2: du
-        # Ak[:, :, 2] = Ak_tmp[:, :, 6]  # V3: du
-        # Ak[:, :, 3] = (Ak_tmp[:, :, 11] + Ak_tmp[:, :, 13]) / np.sqrt(2)  # (px@Sb4h1 + px@Sb4h2)/sqrt(2)
-        # Ak[:, :, 4] = (Ak_tmp[:, :, 12] + Ak_tmp[:, :, 14]) / np.sqrt(2)  # (py@Sb4h1 + py@Sb4h2)/sqrt(2)
-        # Ak[:, :, 5] = (Ak_tmp[:, :, 15] + Ak_tmp[:, :, 17]) / np.sqrt(2)  # (px@Sb4h3 + px@Sb4h4)/sqrt(2)
-        # Ak[:, :, 6] = (Ak_tmp[:, :, 16] + Ak_tmp[:, :, 18]) / np.sqrt(2)  # (py@Sb4h3 + py@Sb4h4)/sqrt(2)
-        # Ak = Ak[:, :, :7]
-        # self._cwi["num_wann"] = 7
-        # self._cwi["Ak"] = Ak
-
-        # H4
-        # Ak_tmp = np.zeros(Ak.shape, dtype=complex)
-        # Ak_tmp =  Ak.copy()
-        # Ak = np.zeros((Ak.shape[0],Ak.shape[1],1))
-        # Ak[:,:,0] = Ak_tmp[:,:,0]
-        # self._cwi["Ak"] = Ak
-        # self._cwi["num_wann"] = 1
-
-        # GdCo5
-        # Ak_tmp = np.zeros(Ak.shape, dtype=complex)
-        # Ak_tmp = Ak.copy()
-        # Ak = np.zeros((Ak.shape[0],Ak.shape[1],25), dtype=complex)
-        # Ak[:,:,0:5] = Ak_tmp[:,:,17:22]
-        # Ak[:,:,5:10] = Ak_tmp[:,:,26:31]
-        # Ak[:,:,10:15] = Ak_tmp[:,:,35:40]
-        # Ak[:,:,15:20] = Ak_tmp[:,:,44:49]
-        # Ak[:,:,20:25] = Ak_tmp[:,:,53:58]
-        # self._cwi["num_wann"] = 25
-        # self._cwi["Ak"] = Ak
-
         if self._cwi["proj_min"] > 0.0:
             msg = f"   - excluding bands with low projectability (proj_min = {self._cwi['proj_min']}) ... "
             self._cwm.log(msg, None, end="", file=self._outfile, mode="a")
@@ -617,30 +512,6 @@ class CWModel(dict):
             mode="a",
         )
 
-        # ionic limit
-        # c_1 = 0.669
-        # c_2 = np.sqrt(1 - c_1**2)
-
-        # optimized values
-        # c_1 = 0.85
-        # c_2 = np.sqrt(1 - c_1**2)
-
-        #
-        # eg1 = {7: c_1, 6: c_2}
-        # eg2 = {5: c_2, 8: c_1}
-        # eg3 = {7: c_2, 6: -c_1}
-        # eg4 = {5: -c_1, 8: c_2}
-
-        # eg_dict = {"eg1": eg1, "eg2": eg2, "eg3": eg3, "eg4": eg4}
-
-        # for orb, d in eg_dict.items():
-        #    occ = 0.0
-        #    for m1, coeff1 in d.items():
-        #        for m2, coeff2 in d.items():
-        #            occ += coeff1 * coeff2 * np.real(np.sum(nk[:, m1, m2])) / self._cwi["num_k"]
-
-        #    self._cwm.log("  {0:6s}        {1:15.8f}".format(orb, occ), None, file=self._outfile, mode="a")
-
         self._cwm.log("done", file=self._outfile, mode="a")
 
         # symmetrization
@@ -793,29 +664,6 @@ class CWModel(dict):
 
         combined_samb_matrix = self._cwi._mm.get_combined_samb_matrix(fmt="value", digit=15, select=select)
 
-        ### sign chagne for odd-parity site- and bond-cluster multipoles (L-handed CoSi) ###
-        # combined_samb = self._cwi._mm["combined_samb"]
-        # combined_id = self._cwi._mm["combined_id"]
-        # common_id = self._cwi._mm["common_id"]
-
-        # combined_samb_matrix_ = {}
-        # for zj, d in combined_samb_matrix.items():
-        #    combined_samb[combined_id[zj][1].samb_type]
-
-        #    idx = [lst.index(zj) if zj in lst else None for lst in common_id[combined_id[zj][1].samb_type]]
-        #    idx = [i for i in idx if i is not None][0]
-        #    coeff, asamb, acomp, sbsamb, sbcomp = list(combined_samb[combined_id[zj][1].samb_type].values())[idx][0][0][
-        #        0
-        #    ]
-
-        #    if (sbsamb[0] in ("Q", "T") and sbsamb[1] % 2 == 1) or (sbsamb[0] in ("M", "G") and sbsamb[1] % 2 == 0):
-        #        print(zj, sbsamb)
-        #        d = {k: -v for k, v in d.items()}
-
-        #    combined_samb_matrix_[zj] = d
-
-        # combined_samb_matrix = combined_samb_matrix_
-        ### sign chagne for odd-parity site- and bond-cluster multipoles (L-handed CoSi) ###
 
         ### change spin quantization axis
         if self._cwi["spinors"]:
@@ -1549,10 +1397,6 @@ class CWModel(dict):
         Or = np.array(Or)
         Or_str = "# written {}  (created by pw2cw)\n".format(datetime.datetime.now().strftime("on %d%b%Y at %H:%M:%S"))
 
-        # Or_str += " {0[0]:18.15f} {0[1]:18.15f} {0[2]:18.15f}\n".format(unit_cell_cart[0, :])
-        # Or_str += " {0[0]:18.15f} {0[1]:18.15f} {0[2]:18.15f}\n".format(unit_cell_cart[1, :])
-        # Or_str += " {0[0]:18.15f} {0[1]:18.15f} {0[2]:18.15f}\n".format(unit_cell_cart[2, :])
-
         if rpoints is None:
             rpoints = np.array(self._cwi["irvec"])
             ndegen = np.array(self._cwi["ndegen"])
@@ -1634,10 +1478,6 @@ class CWModel(dict):
         unit_cell_cart = np.array(self._cwi["unit_cell_cart"])
         Hr = np.array(Hr)
         tb_str = "# written {}  (created by pw2cw)\n".format(datetime.datetime.now().strftime("on %d%b%Y at %H:%M:%S"))
-
-        # tb_str += " {0[0]:18.15f} {0[1]:18.15f} {0[2]:18.15f}\n".format(unit_cell_cart[0, :])
-        # tb_str += " {0[0]:18.15f} {0[1]:18.15f} {0[2]:18.15f}\n".format(unit_cell_cart[1, :])
-        # tb_str += " {0[0]:18.15f} {0[1]:18.15f} {0[2]:18.15f}\n".format(unit_cell_cart[2, :])
 
         if rpoints is None:
             rpoints = np.array(self._cwi["irvec"])
