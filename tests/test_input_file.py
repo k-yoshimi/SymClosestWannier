@@ -4,9 +4,11 @@ tests for reading input files compressed as seedname.ext.gz or seedname.ext.tar.
 
 import io
 import os
+import re
 import gzip
 import shutil
 import tarfile
+import zlib
 
 import numpy as np
 import pytest
@@ -380,7 +382,7 @@ BROKEN_ARCHIVES = [("gz", "garbage"), ("gz", "truncated"), ("gz", "corrupted"), 
 def test_open_input_broken_archive(tmp_path, kind, how):
     archive = break_archive(tmp_path / "a.eig", kind, how)
 
-    with pytest.raises(SymCWInputError, match=f"cannot read {archive}, the file may be broken"):
+    with pytest.raises(SymCWInputError, match=re.escape(f"cannot read {archive}, the file may be broken")):
         with open_input(str(tmp_path / "a.eig"), "eig") as fp:
             fp.readlines()
 
@@ -402,7 +404,7 @@ def test_input_path_broken_archive(tmp_path, monkeypatch, kind, how):
 
     monkeypatch.setattr(input_file_module.tempfile, "mkstemp", record_mkstemp)
 
-    with pytest.raises(SymCWInputError, match=f"cannot read {archive}, the file may be broken"):
+    with pytest.raises(SymCWInputError, match=re.escape(f"cannot read {archive}, the file may be broken")):
         with input_path(str(tmp_path / "a.spn"), "spn"):
             pass
 
@@ -475,6 +477,9 @@ class FailingStream(io.BytesIO):
         self._fail_after_first_read()
         return super().readinto(b)
 
+    def seek(self, offset, whence=io.SEEK_SET):
+        raise zlib.error("invalid distance too far back")
+
     def close(self):
         super().close()
         if self.fail_close:
@@ -519,3 +524,76 @@ def test_checked_reader_close_failure():
         src.close()
 
     assert closed == [True] and src.closed
+
+
+# ==================================================
+def test_checked_reader_seek_failure():
+    from symclosestwannier.util.input_file import _CheckedReader
+
+    with _CheckedReader(FailingStream(b"data"), "a.eig.gz") as src:
+        with pytest.raises(SymCWInputError, match=re.escape("cannot read a.eig.gz, the file may be broken")) as e:
+            src.seek(0)
+
+    assert isinstance(e.value.__cause__, zlib.error)
+
+
+# ==================================================
+def test_checked_reader_on_close_failure():
+    from symclosestwannier.util.input_file import _CheckedReader
+
+    raw = FailingStream(b"data")
+    calls = []
+
+    def fail_on_close():
+        calls.append(True)
+        raise OSError("archive close failed")
+
+    src = _CheckedReader(raw, "a.eig.tar.gz", on_close=fail_on_close)
+
+    with pytest.raises(OSError, match="archive close failed"):
+        src.close()
+    src.close()
+
+    assert raw.closed and src.closed and calls == [True]
+
+
+# ==================================================
+@pytest.mark.parametrize("kind", ["gz", "tar.gz"])
+def test_input_path_closes_archive_on_error(tmp_path, monkeypatch, kind):
+    import symclosestwannier.util.input_file as input_file_module
+
+    archive = break_archive(tmp_path / "a.spn", kind, "truncated")
+
+    opened = []
+    open_compressed = input_file_module._open_compressed
+    tar_open = tarfile.open
+
+    def record_open_compressed(file_name):
+        src = open_compressed(file_name)
+        opened.append(src)
+        return src
+
+    def record_tar_open(*args, **kwargs):
+        tf = tar_open(*args, **kwargs)
+        opened.append(tf)
+        return tf
+
+    monkeypatch.setattr(input_file_module, "_open_compressed", record_open_compressed)
+    monkeypatch.setattr(input_file_module.tarfile, "open", record_tar_open)
+
+    with pytest.raises(SymCWInputError, match=re.escape(f"cannot read {archive}")):
+        with input_path(str(tmp_path / "a.spn"), "spn"):
+            pass
+
+    # gz fails while copying, and tar.gz while listing the members.
+    assert len(opened) == 1
+    assert opened[0].closed
+
+
+# ==================================================
+def test_open_input_fileno(tmp_path):
+    (tmp_path / "a.eig").write_text("1\n")
+    compress(tmp_path / "a.eig", "gz")
+
+    with open_input(str(tmp_path / "a.eig"), "eig") as fp:
+        assert os.fstat(fp.fileno()).st_size == os.path.getsize(tmp_path / "a.eig.gz")

@@ -68,6 +68,9 @@ class _CheckedReader(io.BufferedIOBase):
     def tell(self):
         return self._raw.tell()
 
+    def fileno(self):
+        return self._raw.fileno()
+
     def read(self, size=-1):
         with _check_archive(self._archive):
             return self._raw.read(size)
