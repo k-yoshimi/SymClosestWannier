@@ -3,14 +3,13 @@ Nnkp manages information needed to determine the required overlap elements Mmn(k
 """
 
 import os
-import gzip
-import tarfile
 import itertools
 
 import numpy as np
 import scipy.linalg
 
-from symclosestwannier.util.exceptions import SymCWFileNotFoundError, SymCWInputError
+from symclosestwannier.util.exceptions import SymCWInputError
+from symclosestwannier.util.input_file import open_input
 
 
 _default = {
@@ -101,17 +100,8 @@ class Nnkp(dict):
                 - bvec_crys        : b-vectors (crystal coordinate) (list), [None].
                 - wb               : weight for each k-points and nearest-neighbour k-points (list), [None].
         """
-        if os.path.exists(file_name):
-            with open(file_name) as fp:
-                nnkp_data = fp.readlines()
-        elif os.path.exists(file_name + ".gz"):
-            with gzip.open(file_name + ".gz", "rt") as fp:
-                nnkp_data = fp.readlines()
-        elif os.path.exists(file_name + ".tar.gz"):
-            with tarfile.open(file_name + "tar.gz", "rt") as fp:
-                nnkp_data = fp.readlines()
-        else:
-            raise SymCWFileNotFoundError("nnkp", file_name)
+        with open_input(file_name, "nnkp") as fp:
+            nnkp_data = fp.readlines()
 
         d = Nnkp._default().copy()
 
