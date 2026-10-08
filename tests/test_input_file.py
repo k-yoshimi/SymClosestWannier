@@ -427,3 +427,95 @@ def test_pw2cw_with_broken_archive(make_case, kind):
     assert result.exit_code == 1
     assert "Error: cannot read " in result.output
     assert f"{seedname}.eig.{kind}, the file may be broken" in result.output
+
+
+# ==================================================
+@pytest.mark.parametrize("kind", ["gz", "tar.gz"])
+def test_open_input_seek_and_name(tmp_path, kind):
+    (tmp_path / "a.eig").write_text("1 one\n2 two\n3 three\n")
+    compress(tmp_path / "a.eig", kind)
+
+    with open_input(str(tmp_path / "a.eig"), "eig") as fp:
+        assert fp.name == f"{tmp_path / 'a.eig'}.{kind}"
+        assert fp.seekable()
+        assert fp.readline() == "1 one\n"
+        pos = fp.tell()
+        assert fp.read() == "2 two\n3 three\n"
+        fp.seek(pos)
+        assert fp.readline() == "2 two\n"
+        fp.seek(0)
+        assert fp.readline() == "1 one\n"
+
+
+# ==================================================
+class FailingStream(io.BytesIO):
+    """
+    binary stream which fails as a broken compressed file after the first read, and records close.
+    """
+
+    def __init__(self, data, fail_close=False):
+        super().__init__(data)
+        self.reads = 0
+        self.fail_close = fail_close
+
+    def _fail_after_first_read(self):
+        self.reads += 1
+        if self.reads > 1:
+            raise EOFError("Compressed file ended before the end-of-stream marker was reached")
+
+    def read(self, size=-1):
+        self._fail_after_first_read()
+        return super().read(size)
+
+    def read1(self, size=-1):
+        self._fail_after_first_read()
+        return super().read1(size)
+
+    def readinto(self, b):
+        self._fail_after_first_read()
+        return super().readinto(b)
+
+    def close(self):
+        super().close()
+        if self.fail_close:
+            raise OSError("close failed")
+
+
+# ==================================================
+@pytest.mark.parametrize("method", ["read", "read1", "readinto", "text"])
+def test_checked_reader_fails_after_first_read(method):
+    from symclosestwannier.util.input_file import _CheckedReader
+
+    raw = FailingStream(b"1\n" * 10)
+    closed = []
+    src = _CheckedReader(raw, "a.eig.tar.gz", on_close=lambda: closed.append(True))
+
+    with pytest.raises(SymCWInputError, match="cannot read a.eig.tar.gz, the file may be broken") as e:
+        if method == "text":
+            with io.TextIOWrapper(src) as fp:
+                fp.readline()
+                fp.read()
+        else:
+            with src:
+                for _ in range(2):
+                    if method == "readinto":
+                        src.readinto(bytearray(4))
+                    else:
+                        getattr(src, method)(4)
+
+    assert isinstance(e.value.__cause__, EOFError)
+    assert raw.closed and closed == [True] and src.closed
+
+
+# ==================================================
+def test_checked_reader_close_failure():
+    from symclosestwannier.util.input_file import _CheckedReader
+
+    raw = FailingStream(b"data", fail_close=True)
+    closed = []
+    src = _CheckedReader(raw, "a.eig.gz", on_close=lambda: closed.append(True))
+
+    with pytest.raises(OSError, match="close failed"):
+        src.close()
+
+    assert closed == [True] and src.closed

@@ -50,8 +50,23 @@ class _CheckedReader(io.BufferedIOBase):
         self._archive = archive
         self._on_close = on_close
 
+    @property
+    def name(self):
+        return self._archive
+
     def readable(self):
         return True
+
+    def seekable(self):
+        return self._raw.seekable()
+
+    def seek(self, offset, whence=io.SEEK_SET):
+        # seeking backwards decompresses the data again.
+        with _check_archive(self._archive):
+            return self._raw.seek(offset, whence)
+
+    def tell(self):
+        return self._raw.tell()
 
     def read(self, size=-1):
         with _check_archive(self._archive):
