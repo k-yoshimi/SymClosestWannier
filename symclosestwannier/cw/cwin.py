@@ -151,7 +151,7 @@ class CWin(dict):
         Returns:
             dict: dictionary form of seedname.cwin.
                 - seedname          : seedname (str), ["cwannier"].
-                - outdir            : output files are found in this directory (str), ["./"].
+                - outdir            : output files are written to this directory, relative to the directory of seedname.cwin (str), ["./"].
                 - restart           : the restart position 'cw'/'w90' (str), ["cw"].
                 - disentangle       : disentagle bands ? (bool), [False].
                 - proj_min          : minimum value of projectability: [0.0].
@@ -183,7 +183,7 @@ class CWin(dict):
 
             # only used for symmetrization.
                 - symmetrization    : symmetrize ? (bool), [False].
-                - mp_outdir         : output files for multipie are found in this directory (str). ["./"].
+                - mp_outdir         : output files for multipie are written to this directory, relative to the directory of seedname.cwin (str). ["./"].
                 - mp_seedname       : seedname for seedname_model.py, seedname_samb.py and seedname_matrix.py files (str), ["default"].
                 - ket_amn           : ket basis list in the seedname.amn file. If ket_amn == auto, the list of orbitals are set automatically, or it can be set manually. The format of each ket must be same as the "ket" in sambname_model.py file. See sambname["info"]["ket"] in sambname_model.py file for the format (list), [None].
                 - irreps            : list of irreps to be considered (str/list), ["all"].
@@ -234,6 +234,10 @@ class CWin(dict):
                 - lindhard_freq               : frequency for computing the lindhard function. (The units are [eV]) (float), [0.0].
                 - lindhard_smr_fixed_en_width : Overrides the smr_fixed_en_width global variable (float), [0.01].
                 - lindhard_kmesh              : dimensions of the Monkhorst-Pack grid of k-points for lindhard function (list), [[1, 1, 1]].
+                - lindhard_surface            : calculate lindhard function on a 2d q-plane? (bool), [False].
+                - lindhard_surface_qmesh      : 2d qmesh given by [[q1_min, q1_max, N1], [q2_min, q2_max, N2] ] (crystal coordinate), (list), [ [[-1, 1, 10], [-1, 1, 10]] ].
+                - lindhard_surface_view       : q3 direction (list), [ [0, 0, 1] ].
+                - lindhard_surface_const      : constant value for q3 axis [0.0].
                 - qpoint                      : representative q points (dict), [None].
                 - qpoint_path                 : q-points along high symmetry line in Brillouin zone, [[k1, k2, k3]] (crystal coordinate) (str), [None].
                 - Nq1                         : number of divisions for high symmetry lines (int, optional), [30].
