@@ -137,7 +137,7 @@ class CWManager:
         Returns:
             dict: read dict.
         """
-        if type(file_dict) == str:
+        if isinstance(file_dict, str):
             full = self._topdir + "/" + file_dict
             if os.path.isfile(full):
                 if "pkl" in full:

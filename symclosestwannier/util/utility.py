@@ -935,7 +935,7 @@ def thermal_avg(O, E, U, ef=0.0, T_Kelvin=0.0, num_k=0):
     Returns:
         ndarray: thermal average of the given operator.
     """
-    if type(O) != list:
+    if not isinstance(O, list):
         single_operator = True
         O = [O]
     else:

@@ -121,7 +121,7 @@ class CWModel(dict):
     """
 
     # ==================================================
-    def __init__(self, cwi, cwm, samb_info={}, dic=None):
+    def __init__(self, cwi, cwm, samb_info=None, dic=None):
         """
         Closest Wannier (CW) tight-binding (TB) model based on Plane-Wave (PW) DFT calculation.
 
@@ -135,7 +135,7 @@ class CWModel(dict):
 
         self._cwi = cwi
         self._cwm = cwm
-        self._samb_info = samb_info
+        self._samb_info = {} if samb_info is None else samb_info
         self._outfile = f"{self._cwi['seedname']}.cwout"
 
         if dic is not None:
@@ -1478,9 +1478,10 @@ class CWModel(dict):
 
                 for k, v in data.items():
                     try:
+                        # exact type check: subclasses such as NSArray are stored as str.
                         if type(v) in (str, list, np.ndarray):
                             dset = group.create_dataset(k, data=v)
-                        elif type(v) == bool:
+                        elif isinstance(v, bool):
                             dset = group.create_dataset(k, data=v, dtype=bool)
                         else:
                             dset = group.create_dataset(k, data=str(v))
@@ -1508,19 +1509,19 @@ class CWModel(dict):
                 for k, v in hf[d].items():
                     v = v[()]
 
-                    if type(v) == bytes:
+                    if isinstance(v, bytes):
                         v = v.decode("utf-8")
                         try:
                             v = ast.literal_eval(v)
                         except Exception:
                             v = v
 
-                    if type(v) == np.bool_:
+                    if isinstance(v, np.bool_):
                         v = bool(v)
-                    elif type(v) == np.float64:
+                    elif isinstance(v, np.float64):
                         v = float(v)
-                    elif type(v) in (list, np.ndarray):
-                        v = [vi.decode("utf-8") if type(vi) == bytes else vi for vi in v]
+                    elif isinstance(v, (list, np.ndarray)):
+                        v = [vi.decode("utf-8") if isinstance(vi, bytes) else vi for vi in v]
 
                     if d == "info":
                         info[k] = v

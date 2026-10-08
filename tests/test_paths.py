@@ -170,4 +170,20 @@ def test_postcw_after_moving_directory(make_case, monkeypatch, postcw_stubbed):
     cwi, _ = postcw_stubbed[0]
     assert cwi["outdir"] == str(moved / "out")
     assert cwi["mp_outdir"] == str(moved)
-    assert os.getcwd() == str(moved / "out")
+    assert os.getcwd() == str(moved)
+
+
+# ==================================================
+@pytest.mark.parametrize("extra", ["", "restart = foo"])
+def test_working_directory_is_restored(make_case, extra):
+    """
+    pw2cw returns to the directory where it is run, also when it fails.
+    """
+    workdir = make_case("ch4_sl", outdir="./out", extra=extra)
+
+    try:
+        cw_creator("ch4_sl")
+    except ValueError:
+        pass
+
+    assert os.getcwd() == str(workdir)

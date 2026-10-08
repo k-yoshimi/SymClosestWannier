@@ -161,7 +161,7 @@ class CWInfo(dict):
                     if k in info_:
                         v_ = info_[k]
 
-                        if type(v) == list:
+                        if isinstance(v, list):
                             if not np.allclose(v, v_, 1e-6):
                                 if k == "nnkpts":
                                     info = _sort_Mkb_nnkpts(info, info_dict["nnkp"])

@@ -49,9 +49,26 @@ def analyzer(seedname="cwannier"):
 
     Args:
         seedname (str, optional): seedname.
+
+    Returns:
+        tuple: Response, Band.
     """
     # input files are read from the current directory, CWManager moves to outdir.
+    # the current directory is restored afterwards.
     indir = os.getcwd()
+    try:
+        return _analyzer(seedname, indir)
+    finally:
+        os.chdir(indir)
+
+
+# ==================================================
+def _analyzer(seedname, indir):
+    """
+    Args:
+        seedname (str): seedname.
+        indir (str): directory of input files.
+    """
     cwin = CWin(indir, seedname)
     cwm = CWManager(
         topdir=cwin["outdir"], verbose=cwin["verbose"], parallel=cwin["parallel"], formatter=cwin["formatter"]
@@ -77,7 +94,7 @@ def analyzer(seedname="cwannier"):
 
     Hr = None
 
-    if type(cw_model["Hr"]) == np.ndarray:
+    if isinstance(cw_model["Hr"], np.ndarray):
         Hr = np.array(cw_model["Hr"], dtype=np.complex128)
 
     if cwi["symmetrization"]:

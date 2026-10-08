@@ -80,7 +80,21 @@ def cw_creator(seedname="cwannier"):
         seedname (str, optional): seedname.
     """
     # input files are read from the current directory, CWManager moves to outdir.
+    # the current directory is restored afterwards.
     indir = os.getcwd()
+    try:
+        _cw_creator(seedname, indir)
+    finally:
+        os.chdir(indir)
+
+
+# ==================================================
+def _cw_creator(seedname, indir):
+    """
+    Args:
+        seedname (str): seedname.
+        indir (str): directory of input files.
+    """
     cwin = CWin(indir, seedname)
     cwm = CWManager(
         topdir=cwin["outdir"], verbose=cwin["verbose"], parallel=cwin["parallel"], formatter=cwin["formatter"]
