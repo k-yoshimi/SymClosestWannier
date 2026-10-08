@@ -175,7 +175,8 @@ def test_open_input_selects_member_by_name(tmp_path):
     with fp:
         assert fp.read() == "eig\n"
 
-    assert fp._tf.closed
+    # the tar archive is closed with the file.
+    assert fp.buffer._on_close.__self__.closed
 
 
 # ==================================================
@@ -336,3 +337,93 @@ def test_umat_compressed_equals_plain(tmp_path, kind):
     assert np.array(expected["Uk"]).shape == (1, 3, 2)
     for key in ("Uoptk", "Udisk", "Uk"):
         np.testing.assert_array_equal(np.array(result[key]), np.array(expected[key]))
+
+
+# ==================================================
+def break_archive(path, kind, how):
+    """
+    write a broken compressed file of a text file, which is large enough to be read in several chunks.
+
+    Args:
+        path (pathlib.Path): file without .gz or .tar.gz.
+        kind (str): "gz" or "tar.gz".
+        how (str): "garbage" (not a compressed file), "truncated" or "corrupted" (changed bytes in the middle).
+
+    Returns:
+        str: file name of the broken file.
+    """
+    path.write_text("".join(f"{i} {np.sin(i):.12f}\n" for i in range(200000)))
+    compress(path, kind)
+    archive = f"{path}.{kind}"
+
+    with open(archive, "rb") as fp:
+        data = fp.read()
+    if how == "garbage":
+        data = b"not a compressed file\n" * 10
+    elif how == "truncated":
+        data = data[: len(data) // 2]
+    else:
+        n = len(data) // 2
+        data = data[:n] + bytes(b ^ 0xFF for b in data[n : n + 64]) + data[n + 64 :]
+    with open(archive, "wb") as fp:
+        fp.write(data)
+
+    return archive
+
+
+# changed bytes in tar.gz are not always detected, since the checksum of gzip is checked only at the end of the archive.
+BROKEN_ARCHIVES = [("gz", "garbage"), ("gz", "truncated"), ("gz", "corrupted"), ("tar.gz", "garbage"), ("tar.gz", "truncated")]
+
+
+# ==================================================
+@pytest.mark.parametrize("kind, how", BROKEN_ARCHIVES)
+def test_open_input_broken_archive(tmp_path, kind, how):
+    archive = break_archive(tmp_path / "a.eig", kind, how)
+
+    with pytest.raises(SymCWInputError, match=f"cannot read {archive}, the file may be broken"):
+        with open_input(str(tmp_path / "a.eig"), "eig") as fp:
+            fp.readlines()
+
+
+# ==================================================
+@pytest.mark.parametrize("kind, how", BROKEN_ARCHIVES)
+def test_input_path_broken_archive(tmp_path, monkeypatch, kind, how):
+    import symclosestwannier.util.input_file as input_file_module
+
+    archive = break_archive(tmp_path / "a.spn", kind, how)
+
+    created = []
+    mkstemp = input_file_module.tempfile.mkstemp
+
+    def record_mkstemp(*args, **kwargs):
+        fd, path = mkstemp(*args, **kwargs)
+        created.append(path)
+        return fd, path
+
+    monkeypatch.setattr(input_file_module.tempfile, "mkstemp", record_mkstemp)
+
+    with pytest.raises(SymCWInputError, match=f"cannot read {archive}, the file may be broken"):
+        with input_path(str(tmp_path / "a.spn"), "spn"):
+            pass
+
+    assert all(not os.path.exists(path) for path in created)
+
+
+# ==================================================
+@pytest.mark.parametrize("kind", ["gz", "tar.gz"])
+def test_pw2cw_with_broken_archive(make_case, kind):
+    from click.testing import CliRunner
+
+    from symclosestwannier.scripts.pw2cw import cmd as pw2cw
+
+    seedname = "ch4_sl"
+    workdir = make_case(seedname)
+    compress(workdir / f"{seedname}.eig", kind)
+    archive = workdir / f"{seedname}.eig.{kind}"
+    archive.write_bytes(archive.read_bytes()[:100])
+
+    result = CliRunner().invoke(pw2cw, [seedname], catch_exceptions=False)
+
+    assert result.exit_code == 1
+    assert "Error: cannot read " in result.output
+    assert f"{seedname}.eig.{kind}, the file may be broken" in result.output

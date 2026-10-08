@@ -10,6 +10,8 @@ import pickle
 import subprocess
 from gcoreutils.io_util import read_dict, write_dict
 
+from symclosestwannier.util.exceptions import SymCWFileNotFoundError
+
 
 # ==================================================
 class CWManager:
@@ -146,7 +148,7 @@ class CWManager:
                     dic = read_dict(full)
                 self.log(f"  * read '{full}'.", None)
             else:
-                raise FileNotFoundError(f"cannot open {full}.")
+                raise SymCWFileNotFoundError("dict", full)
         else:
             dic = file_dict
 

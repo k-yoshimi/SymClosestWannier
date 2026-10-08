@@ -139,3 +139,34 @@ def test_exceptions_derive_from_builtin():
     assert issubclass(SymCWFileNotFoundError, OSError)
     assert issubclass(SymCWFileNotFoundError, SymCWError)
     assert str(SymCWFileNotFoundError("eig", "a.eig")) == "cannot find the eig file: a.eig"
+
+
+# ==================================================
+def test_handled_errors_are_not_raised(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    result = CliRunner().invoke(pw2cw, ["seed"], catch_exceptions=False)
+
+    assert result.exit_code == 1
+    assert "Error: cannot find the cwin file:" in result.output
+
+
+# ==================================================
+def test_unexpected_errors_are_raised(monkeypatch):
+    def fail(seedname):
+        raise RuntimeError("unexpected")
+
+    monkeypatch.setattr("symclosestwannier.scripts.pw2cw.cw_creator", fail)
+
+    with pytest.raises(RuntimeError, match="unexpected"):
+        CliRunner().invoke(pw2cw, ["seed"], catch_exceptions=False)
+
+
+# ==================================================
+def test_cw_manager_read_missing_file(tmp_path):
+    from symclosestwannier.cw.cw_manager import CWManager
+
+    cwm = CWManager(topdir=str(tmp_path), verbose=False, parallel=False, formatter=False)
+
+    with pytest.raises(SymCWFileNotFoundError, match="cannot find the dict file:"):
+        cwm.read("missing.dat")

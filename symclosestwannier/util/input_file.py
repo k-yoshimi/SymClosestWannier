@@ -5,12 +5,77 @@ open input files given as file_name, file_name.gz or file_name.tar.gz.
 import os
 import io
 import gzip
+import zlib
 import shutil
 import tarfile
 import tempfile
 import contextlib
 
 from symclosestwannier.util.exceptions import SymCWFileNotFoundError, SymCWInputError
+
+# errors raised while reading a broken compressed file.
+_DECOMPRESS_ERRORS = (EOFError, zlib.error, gzip.BadGzipFile, tarfile.TarError)
+
+
+# ==================================================
+@contextlib.contextmanager
+def _check_archive(archive):
+    """
+    raise SymCWInputError with the file name for errors of a broken compressed file.
+
+    Args:
+        archive (str): file name of the compressed file.
+    """
+    try:
+        yield
+    except _DECOMPRESS_ERRORS as e:
+        raise SymCWInputError(f"cannot read {archive}, the file may be broken ({type(e).__name__}: {e}).") from e
+
+
+# ==================================================
+class _CheckedReader(io.BufferedIOBase):
+    """
+    binary stream of a compressed file, which reports a broken file as SymCWInputError.
+    decompression errors can occur at any read, not only when the file is opened.
+    """
+
+    def __init__(self, raw, archive, on_close=None):
+        """
+        Args:
+            raw (file object): binary stream of decompressed data.
+            archive (str): file name of the compressed file.
+            on_close (callable, optional): called after raw is closed, e.g. to close the tar archive.
+        """
+        self._raw = raw
+        self._archive = archive
+        self._on_close = on_close
+
+    def readable(self):
+        return True
+
+    def read(self, size=-1):
+        with _check_archive(self._archive):
+            return self._raw.read(size)
+
+    def read1(self, size=-1):
+        with _check_archive(self._archive):
+            return self._raw.read1(size)
+
+    def readinto(self, b):
+        with _check_archive(self._archive):
+            return self._raw.readinto(b)
+
+    def close(self):
+        if self.closed:
+            return
+        try:
+            self._raw.close()
+        finally:
+            try:
+                if self._on_close is not None:
+                    self._on_close()
+            finally:
+                super().close()
 
 
 # ==================================================
@@ -26,7 +91,8 @@ def _tar_member(tf, file_name, archive):
     Returns:
         tarfile.TarInfo: member.
     """
-    files = [m for m in tf.getmembers() if m.isfile()]
+    with _check_archive(archive):
+        files = [m for m in tf.getmembers() if m.isfile()]
     same_name = [m for m in files if os.path.basename(m.name) == os.path.basename(file_name)]
 
     if len(same_name) == 1:
@@ -38,18 +104,34 @@ def _tar_member(tf, file_name, archive):
 
 
 # ==================================================
-class _TarTextFile(io.TextIOWrapper):
+def _open_compressed(file_name):
     """
-    text file of a tar member, which closes the archive when closed.
+    open file_name.gz or file_name.tar.gz as a binary stream (in this order of priority).
+
+    Args:
+        file_name (str): file name without .gz or .tar.gz.
+
+    Returns:
+        _CheckedReader or None: binary stream, or None if there is no compressed file.
     """
+    if os.path.exists(file_name + ".gz"):
+        archive = file_name + ".gz"
+        return _CheckedReader(gzip.open(archive, "rb"), archive)
 
-    def __init__(self, tf, member):
-        self._tf = tf
-        super().__init__(tf.extractfile(member))
+    if os.path.exists(file_name + ".tar.gz"):
+        archive = file_name + ".tar.gz"
+        with _check_archive(archive):
+            tf = tarfile.open(archive, "r:gz")
+        try:
+            member = _tar_member(tf, file_name, archive)
+            with _check_archive(archive):
+                raw = tf.extractfile(member)
+            return _CheckedReader(raw, archive, on_close=tf.close)
+        except BaseException:
+            tf.close()
+            raise
 
-    def close(self):
-        super().close()
-        self._tf.close()
+    return None
 
 
 # ==================================================
@@ -67,19 +149,11 @@ def open_input(file_name, kind):
     if os.path.exists(file_name):
         return open(file_name, "r")
 
-    if os.path.exists(file_name + ".gz"):
-        return gzip.open(file_name + ".gz", "rt")
+    src = _open_compressed(file_name)
+    if src is None:
+        raise SymCWFileNotFoundError(kind, file_name)
 
-    if os.path.exists(file_name + ".tar.gz"):
-        archive = file_name + ".tar.gz"
-        tf = tarfile.open(archive, "r:gz")
-        try:
-            return _TarTextFile(tf, _tar_member(tf, file_name, archive))
-        except BaseException:
-            tf.close()
-            raise
-
-    raise SymCWFileNotFoundError(kind, file_name)
+    return io.TextIOWrapper(src)
 
 
 # ==================================================
@@ -101,16 +175,13 @@ def input_path(file_name, kind):
         yield file_name
         return
 
+    src = _open_compressed(file_name)
+    if src is None:
+        raise SymCWFileNotFoundError(kind, file_name)
+
     # resources are closed (and the temporary file is removed) in reverse order, also on errors.
     with contextlib.ExitStack() as stack:
-        if os.path.exists(file_name + ".gz"):
-            src = stack.enter_context(gzip.open(file_name + ".gz", "rb"))
-        elif os.path.exists(file_name + ".tar.gz"):
-            archive = file_name + ".tar.gz"
-            tf = stack.enter_context(tarfile.open(archive, "r:gz"))
-            src = stack.enter_context(tf.extractfile(_tar_member(tf, file_name, archive)))
-        else:
-            raise SymCWFileNotFoundError(kind, file_name)
+        stack.enter_context(src)
 
         fd, tmp = tempfile.mkstemp(prefix=os.path.basename(file_name) + ".")
         stack.callback(os.remove, tmp)
