@@ -2,8 +2,11 @@
 utility codes.
 """
 
+import os
 import datetime
 import itertools
+import subprocess
+import sys
 import textwrap
 import fortio
 import numpy as np
@@ -15,6 +18,7 @@ from joblib import Parallel, delayed, wrap_non_picklable_objects
 from gcoreutils.nsarray import NSArray
 
 from symclosestwannier.util.constants import k_B_SI, elem_charge_SI, bohr_magn_SI, joul_to_eV
+from symclosestwannier.util.exceptions import SymCWInputError
 
 M_ZERO = np.finfo(float).eps
 
@@ -29,6 +33,24 @@ class FortranFileR(fortio.FortranFile):
         except ValueError:
             print("File '{}' contains subrecords - using header_dtype='int32'".format(filename))
             super().__init__(filename, mode="r", header_dtype="int32", auto_endian=True, check_file=True)
+
+
+# ==================================================
+def run_gnuplot(outdir, script):
+    """
+    run gnuplot script in outdir (warn and continue if gnuplot is not installed).
+
+    Args:
+        outdir (str): directory where the script is placed and run.
+        script (str): file name of gnuplot script.
+    """
+    if not os.path.isdir(outdir):
+        raise FileNotFoundError(f"directory for gnuplot script is not found: {outdir}")
+
+    try:
+        subprocess.run(["gnuplot", script], cwd=outdir)
+    except FileNotFoundError:
+        print(f"warning: gnuplot is not found, {script} is not executed.", file=sys.stderr)
 
 
 # ==================================================
@@ -293,7 +315,7 @@ def convert_w90_orbital(l, m, r, s):
             orbital = "f1"  # fy(3x2-y2)
 
     if orbital == "":
-        raise Exception(f"invalid orbital projection was given, (l={l},m={m},r={r},s={s}).")
+        raise SymCWInputError(f"invalid orbital projection was given, (l={l},m={m},r={r},s={s}).")
 
     if s == 1:
         orbital = f"({orbital},u)".replace("'", "")
@@ -752,7 +774,7 @@ def sort_ket_list(lst, ket, ket_samb):
     elif lst.ndim == 3:
         lst = list(np.array(lst)[idx_list, :, :])
     else:
-        raise Exception(f"invalid dimension of lst = {lst.ndim} was given.")
+        raise ValueError(f"invalid dimension of lst = {lst.ndim} was given.")
 
     return list(lst)
 
@@ -913,7 +935,7 @@ def thermal_avg(O, E, U, ef=0.0, T_Kelvin=0.0, num_k=0):
     Returns:
         ndarray: thermal average of the given operator.
     """
-    if type(O) != list:
+    if not isinstance(O, list):
         single_operator = True
         O = [O]
     else:
@@ -939,7 +961,7 @@ def thermal_avg(O, E, U, ef=0.0, T_Kelvin=0.0, num_k=0):
         O_exp.append(np.real(Oi_exp))
 
         if np.imag(Oi_exp) > 1e-7:
-            raise Exception(f"expectation value of {i+1}th operator is wrong : {Oi_exp}")
+            raise RuntimeError(f"expectation value of {i+1}th operator is wrong : {Oi_exp}")
 
     if single_operator:
         O_exp = O_exp[0]

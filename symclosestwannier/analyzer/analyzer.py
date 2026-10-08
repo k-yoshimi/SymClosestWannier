@@ -39,6 +39,7 @@ from symclosestwannier.util.message import (
 
 from symclosestwannier.util.utility import sort_ket_matrix
 from symclosestwannier.util.hr_utility import read_hr
+from symclosestwannier.util.exceptions import SymCWInputError
 
 
 # ==================================================
@@ -48,8 +49,27 @@ def analyzer(seedname="cwannier"):
 
     Args:
         seedname (str, optional): seedname.
+
+    Returns:
+        tuple: Response, Band.
     """
-    cwin = CWin(".", seedname)
+    # input files are read from the current directory, CWManager moves to outdir.
+    # the current directory is restored afterwards.
+    indir = os.getcwd()
+    try:
+        return _analyzer(seedname, indir)
+    finally:
+        os.chdir(indir)
+
+
+# ==================================================
+def _analyzer(seedname, indir):
+    """
+    Args:
+        seedname (str): seedname.
+        indir (str): directory of input files.
+    """
+    cwin = CWin(indir, seedname)
     cwm = CWManager(
         topdir=cwin["outdir"], verbose=cwin["verbose"], parallel=cwin["parallel"], formatter=cwin["formatter"]
     )
@@ -57,8 +77,8 @@ def analyzer(seedname="cwannier"):
     filename = os.path.join(cwin["outdir"], "{}".format(f"{seedname}.hdf5"))
     info, data, samb_info = CWModel.read_info_data(filename)
 
-    cwi = CWInfo("./", seedname, dic=info, postcw=True)
-    cwi |= cwin | Win(".", seedname)
+    cwi = CWInfo(indir, seedname, dic=info, postcw=True)
+    cwi |= cwin | Win(indir, seedname)
 
     cw_model = CWModel(cwi, cwm, samb_info, dic=data)
     cwi = cw_model._cwi
@@ -74,7 +94,7 @@ def analyzer(seedname="cwannier"):
 
     Hr = None
 
-    if type(cw_model["Hr"]) == np.ndarray:
+    if isinstance(cw_model["Hr"], np.ndarray):
         Hr = np.array(cw_model["Hr"], dtype=np.complex128)
 
     if cwi["symmetrization"]:
@@ -85,9 +105,9 @@ def analyzer(seedname="cwannier"):
             Hr = sort_ket_matrix(Hr, ket_samb, ket_amn)
 
     if cwi["hr_input"] != "":
-        Hr, irvec, ndegen = read_hr(cwi["hr_input"], orb_dict=None, encoding="UTF-8")
+        Hr, irvec, ndegen = read_hr(os.path.join(indir, cwi["hr_input"]), orb_dict=None, encoding="UTF-8")
         if not np.array_equal(irvec, cwi["irvec"]) or not np.array_equal(ndegen, cwi["ndegen"]):
-            raise Exception("invalid HH_R. The number of R vectors are inconsistent.")
+            raise SymCWInputError(f"the R vectors in hr_input = {cwi['hr_input']} are inconsistent with those of the CW model.")
 
     # ******************** #
     #       Response       #
