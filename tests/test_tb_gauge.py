@@ -349,7 +349,7 @@ def restore_state(monkeypatch):
     monkeypatch.setattr(sys, "path", list(sys.path))
 
 
-def make_response(tmp_path, monkeypatch, model, tb_gauge, berry_task, HH_R=None):
+def make_response(tmp_path, monkeypatch, model, tb_gauge, berry_task, HH_R=None, use_tb_approximation=False):
     """
     Response with get_oper_R replaced by the operators of the model (wannier90 convention).
     """
@@ -359,6 +359,8 @@ def make_response(tmp_path, monkeypatch, model, tb_gauge, berry_task, HH_R=None)
     ops = model.operators_R()
 
     def fake_get_oper_R(name, cwi, *args):
+        if name == "v_R":
+            return get_v_R(cwi, *args)
         if name == "SHC_R":
             return ops["SR_R"].copy(), ops["SHR_R"].copy(), ops["SH_R"].copy()
         return ops[name].copy()
@@ -368,7 +370,7 @@ def make_response(tmp_path, monkeypatch, model, tb_gauge, berry_task, HH_R=None)
     cwi = {
         **make_cwi(model, tb_gauge),
         "seedname": "model",
-        "use_tb_approximation": False,
+        "use_tb_approximation": use_tb_approximation,
         "berry": True,
         "berry_task": berry_task,
         "gyrotropic": False,
@@ -426,10 +428,27 @@ def test_response_converts_BB_CC_with_their_own_hamiltonian(tmp_path, monkeypatc
     res, ops = make_response(tmp_path, monkeypatch, model, True, "morb", HH_R=HH_R_given)
 
     expected = to_tb_gauge(ops, model.irvec, A, TAU)
-    operators = res.operators
-    np.testing.assert_array_equal(operators["HH_R"], HH_R_given)
-    for key in ("AA_R", "BB_R", "CC_R"):
-        np.testing.assert_allclose(operators[key], expected[key], rtol=0, atol=1e-12, err_msg=key)
+    for _ in range(2):
+        operators = res.operators
+        np.testing.assert_array_equal(operators["HH_R"], HH_R_given)
+        for key in ("AA_R", "BB_R", "CC_R"):
+            np.testing.assert_allclose(operators[key], expected[key], rtol=0, atol=1e-12, err_msg=key)
+            np.testing.assert_array_equal(res[key], ops[key])
+
+
+@pytest.mark.parametrize("tb_gauge", [False, True])
+def test_response_velocity_in_tb_approximation(tmp_path, monkeypatch, restore_state, tb_gauge):
+    """
+    with use_tb_approximation = true the velocity is dH/dk / hbar of the Hamiltonian in the gauge given by tb_gauge.
+    """
+    model = Model()
+    res, ops = make_response(tmp_path, monkeypatch, model, tb_gauge, "kubo", use_tb_approximation=True)
+    atoms_frac = TAU if tb_gauge else None
+
+    v_R = res.operators["v_R"]
+    _, delHH = fourier_transform_r_to_k_new(ops["HH_R"], KPOINTS, A, model.irvec, model.ndegen, atoms_frac)
+    v = np.array([fourier_transform_r_to_k(v_R[a], KPOINTS, model.irvec, model.ndegen, atoms_frac) for a in range(3)])
+    np.testing.assert_allclose(v * hbar_SI, delHH, rtol=0, atol=1e-8)
 
 
 # ==================================================
