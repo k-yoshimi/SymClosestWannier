@@ -20,7 +20,8 @@
 
 import numpy as np
 
-from symclosestwannier.util.get_oper_R import get_oper_R
+from symclosestwannier.util.get_oper_R import get_oper_R, to_tb_gauge
+from symclosestwannier.util.utility import tb_gauge_positions
 from symclosestwannier.analyzer.get_response import berry_main, boltzwann_main, gyrotropic_main, spin_moment_main
 
 from symclosestwannier.util.message import (
@@ -59,6 +60,7 @@ class Response(dict):
         self._cwi = cwi
         self._cwm = cwm
         self._outfile = f"{self._cwi['seedname']}.cwpout"
+        self._tb_gauge_converted = False
 
         # operators
         self["HH_R"] = HH_R  # <0n|H|Rm>
@@ -120,7 +122,11 @@ class Response(dict):
             self["HH_R"] = get_oper_R("HH_R", self._cwi) if self["HH_R"] is None else self["HH_R"]
 
             if self._cwi["berry_task"] == "kubo":
-                self["v_R"] = get_oper_R("v_R", self._cwi, self["HH_R"]) if self["v_R"] is None else self["v_R"]
+                self["v_R"] = (
+                    get_oper_R("v_R", self._cwi, self["HH_R"], tb_gauge_positions(self._cwi))
+                    if self["v_R"] is None
+                    else self["v_R"]
+                )
                 self["SS_R"] = (
                     get_oper_R("SS_R", self._cwi) if self._cwi["spin_decomp"] and self["SS_R"] is None else self["SS_R"]
                 )
@@ -160,7 +166,7 @@ class Response(dict):
 
                     # if self._cwi["shc_method"] == "qiao":
                     if self["SR_R"] is None:
-                        SR_R, SHR_R, SH_R = get_oper_R("get_SHC_R", self._cwi)
+                        SR_R, SHR_R, SH_R = get_oper_R("SHC_R", self._cwi)
                         self["SR_R"] = SR_R
                         self["SHR_R"] = SHR_R
                         self["SH_R"] = SH_R
@@ -194,6 +200,15 @@ class Response(dict):
         if self._cwi["spin_moment"]:
             if self["SS_R"] is None:
                 self["SS_R"] = get_oper_R("SS_R", self._cwi)
+
+        # get_oper_R gives operators in the wannier90 convention; get_response transforms them to k space with the orbital
+        # positions in the phase when tb_gauge = true (v_R is already built in that gauge).
+        if self._cwi["tb_gauge"] and not self._tb_gauge_converted:
+            tau = tb_gauge_positions(self._cwi)
+            keys = ("HH_R", "AA_R", "BB_R", "CC_R", "SS_R", "SR_R", "SHR_R", "SH_R")
+            d = to_tb_gauge({k: self[k] for k in keys}, self._cwi["irvec"], self._cwi["unit_cell_cart"], tau)
+            self.update(d)
+            self._tb_gauge_converted = True
 
         self._cwm.log(cw_end_set_operators_msg(), stamp=None, end="\n", file=self._outfile, mode="a")
 
