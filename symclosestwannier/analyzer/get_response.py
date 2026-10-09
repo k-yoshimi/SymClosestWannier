@@ -905,8 +905,6 @@ def berry_get_imfgh_matrix_klist(cwi, operators, kpoints, img=False, imh=False, 
 
     orb_k_list = np.zeros((num_fermi_loc, len(kpoints), num_wann, num_wann, 3))
 
-    print(f"img_k_list.shape = {orb_k_list.shape}")
-
     if img and imh:
 
         BB = fourier_transform_r_to_k_vec(
