@@ -424,7 +424,7 @@ def get_v_R(cwi, HH_R=None, atoms_frac=None):
 
 
 # ==================================================
-def to_tb_gauge(operators, irvec, unit_cell_cart, atoms_frac):
+def to_tb_gauge(operators, irvec, unit_cell_cart, atoms_frac, ndegen=None):
     """
     convert real-space operators from the wannier90 convention (no orbital position in the Fourier phase)
     to the tb gauge (orbital positions τ in the phase), so that the Fourier transform with atoms_frac gives
@@ -438,12 +438,15 @@ def to_tb_gauge(operators, irvec, unit_cell_cart, atoms_frac):
 
     (m, n: row and column orbitals, τ in Cartesian coordinates).
     HH_R, SS_R and SH_R are the same in both conventions; v_R is not converted (see get_v_R).
+    HH_R must be the Hamiltonian from which BB_R and CC_R are built.
+    BB_a^†(R) is the Fourier coefficient of BB_a(k)^† only if ndegen(-R) = ndegen(R), as for a Wigner-Seitz supercell.
 
     Args:
         operators (dict): real-space operators in the wannier90 convention (None for those not calculated).
         irvec (ndarray): lattice points, [[n1,n2,n3]].
         unit_cell_cart (ndarray): lattice vectors (rows), [a1,a2,a3].
         atoms_frac (ndarray): orbital positions in fractional coordinates, (num_wann, 3).
+        ndegen (ndarray, optional): degeneracy of each R, checked to be symmetric under R -> -R.
 
     Returns:
         dict: converted operators (only the keys given in operators, the input is not modified).
@@ -484,6 +487,8 @@ def to_tb_gauge(operators, irvec, unit_cell_cart, atoms_frac):
             minus_R = [index[tuple(-R)] for R in irvec]
         except KeyError:
             raise ValueError("irvec must contain -R for every R to convert CC_R to the tb gauge.")
+        if ndegen is not None and not np.array_equal(np.asarray(ndegen)[minus_R], np.asarray(ndegen)):
+            raise ValueError("ndegen must satisfy ndegen(-R) = ndegen(R) to convert CC_R to the tb gauge.")
         BB_R_dag = BB_R[:, minus_R].transpose(0, 1, 3, 2).conj()
 
         d["CC_R"] = (

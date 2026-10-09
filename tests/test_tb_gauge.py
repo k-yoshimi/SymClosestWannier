@@ -284,24 +284,35 @@ def test_orbital_magnetization_terms_do_not_depend_on_tb_gauge():
 # ==================================================
 def test_spin_current_does_not_depend_on_tb_gauge():
     """
-    matrix elements of the spin current (QZYZ18 Eq. (23)) between eigenstates agree up to the phases of the eigenvectors.
+    matrix elements of the spin current (QZYZ18 Eq. (23)) between eigenstates are the same in both gauges once the phases
+    of the eigenvectors are aligned (H^I(k) = D^† H(k) D, D = diag(e^{ik.τ}), so U^I = D^† U Φ with diagonal Φ).
     """
     model = Model()
-    alpha = 0
+    D = np.array([np.diag(np.exp(2j * np.pi * TAU @ k)) for k in KPOINTS])
 
     res = {}
     for tb_gauge in (False, True):
-        cwi = make_cwi(model, tb_gauge)
         ops = operators_for(model, tb_gauge)
-        atoms_frac = tb_gauge_positions(cwi)
+        atoms_frac = TAU if tb_gauge else None
         HH, delHH = fourier_transform_r_to_k_new(ops["HH_R"], KPOINTS, A, model.irvec, model.ndegen, atoms_frac)
         E, U = np.linalg.eigh(HH)
         delE = wham_get_deleig(delHH, E, U)
         D_h = wham_get_D_h(delHH, E, U)
-        res[tb_gauge] = berry_get_js_k(cwi, ops, KPOINTS, E, delE[alpha], D_h[alpha], U)
+        res[tb_gauge] = {"U": U}
+        for alpha in range(3):
+            for gamma in range(3):
+                cwi = {**make_cwi(model, tb_gauge), "shc_alpha": alpha + 1, "shc_gamma": gamma + 1}
+                res[tb_gauge][alpha, gamma] = berry_get_js_k(cwi, ops, KPOINTS, E, delE[alpha], D_h[alpha], U)
 
-    assert np.max(np.abs(res[False])) > 0.1
-    np.testing.assert_allclose(np.abs(res[True]), np.abs(res[False]), rtol=1e-7, atol=1e-7)
+    # Φ = U^† D U^I (diagonal for non-degenerate bands)
+    Phi = res[False]["U"].transpose(0, 2, 1).conj() @ D @ res[True]["U"]
+    np.testing.assert_allclose(np.abs(Phi), np.array([np.eye(NUM_WANN)] * len(KPOINTS)), rtol=0, atol=1e-8)
+
+    for alpha in range(3):
+        for gamma in range(3):
+            js_II, js_I = res[False][alpha, gamma], res[True][alpha, gamma]
+            assert np.max(np.abs(js_II)) > 0.1
+            np.testing.assert_allclose(js_I, Phi.transpose(0, 2, 1).conj() @ js_II @ Phi, rtol=0, atol=1e-7)
 
 
 # ==================================================
@@ -338,16 +349,13 @@ def restore_state(monkeypatch):
     monkeypatch.setattr(sys, "path", list(sys.path))
 
 
-@pytest.mark.parametrize("tb_gauge", [False, True])
-@pytest.mark.parametrize("berry_task", ["morb", "shc"])
-def test_response_converts_operators_once(tmp_path, monkeypatch, restore_state, tb_gauge, berry_task):
+def make_response(tmp_path, monkeypatch, model, tb_gauge, berry_task, HH_R=None):
     """
-    Response.set_operators takes the operators of get_oper_R (wannier90 convention) and converts them once for tb_gauge.
+    Response with get_oper_R replaced by the operators of the model (wannier90 convention).
     """
     import symclosestwannier.analyzer.response as response
     from symclosestwannier.cw.cw_manager import CWManager
 
-    model = Model()
     ops = model.operators_R()
 
     def fake_get_oper_R(name, cwi, *args):
@@ -368,10 +376,100 @@ def test_response_converts_operators_once(tmp_path, monkeypatch, restore_state, 
         "spin_decomp": False,
     }
     cwm = CWManager(topdir=str(tmp_path), verbose=False, parallel=False, formatter=False)
-    res = response.Response(cwi, cwm)
+
+    return response.Response(cwi, cwm, HH_R=HH_R), ops
+
+
+@pytest.mark.parametrize("tb_gauge", [False, True])
+@pytest.mark.parametrize("berry_task", ["morb", "shc"])
+def test_response_operators(tmp_path, monkeypatch, restore_state, tb_gauge, berry_task):
+    """
+    Response keeps the operators of get_oper_R (wannier90 convention) and Response.operators gives them in the gauge
+    used by get_response; calling set_operators again does not convert twice.
+    """
+    model = Model()
+    res, ops = make_response(tmp_path, monkeypatch, model, tb_gauge, berry_task)
     res.set_operators()
 
     expected = to_tb_gauge(ops, model.irvec, A, TAU) if tb_gauge else ops
     keys = ("HH_R", "AA_R", "BB_R", "CC_R") if berry_task == "morb" else ("HH_R", "AA_R", "SS_R", "SR_R", "SHR_R", "SH_R")
+    operators = res.operators
     for key in keys:
-        np.testing.assert_allclose(res[key], expected[key], rtol=0, atol=1e-12, err_msg=key)
+        np.testing.assert_allclose(res[key], ops[key], rtol=0, atol=1e-12, err_msg=key)
+        np.testing.assert_allclose(operators[key], expected[key], rtol=0, atol=1e-12, err_msg=key)
+
+
+def test_response_operators_added_later_are_converted(tmp_path, monkeypatch, restore_state):
+    """
+    operators added by a later set_operators (here ahc -> morb) are converted as well, and only once.
+    """
+    model = Model()
+    res, ops = make_response(tmp_path, monkeypatch, model, True, "ahc")
+    assert res["BB_R"] is None
+    res._cwi["berry_task"] = "morb"
+    res.set_operators()
+
+    expected = to_tb_gauge(ops, model.irvec, A, TAU)
+    operators = res.operators
+    for key in ("AA_R", "BB_R", "CC_R"):
+        np.testing.assert_allclose(operators[key], expected[key], rtol=0, atol=1e-12, err_msg=key)
+
+
+def test_response_converts_BB_CC_with_their_own_hamiltonian(tmp_path, monkeypatch, restore_state):
+    """
+    with a given Hamiltonian (e.g. Hr_sym or hr_input), BB_R and CC_R are converted with the Hamiltonian they are built
+    from (get_oper_R("HH_R")), and the given Hamiltonian is used as it is.
+    """
+    model = Model()
+    HH_R_given = model.operators_R()["HH_R"]
+    HH_R_given[model.irvec.tolist().index([0, 0, 0])] += np.diag([0.3, -0.2, 0.7])
+    res, ops = make_response(tmp_path, monkeypatch, model, True, "morb", HH_R=HH_R_given)
+
+    expected = to_tb_gauge(ops, model.irvec, A, TAU)
+    operators = res.operators
+    np.testing.assert_array_equal(operators["HH_R"], HH_R_given)
+    for key in ("AA_R", "BB_R", "CC_R"):
+        np.testing.assert_allclose(operators[key], expected[key], rtol=0, atol=1e-12, err_msg=key)
+
+
+# ==================================================
+def test_to_tb_gauge_with_wigner_seitz_degeneracies():
+    """
+    the conversion of CC_R uses BB_a(-R)^† for the Fourier coefficient of BB_a(k)^†; check it on a Wigner-Seitz supercell
+    of an even mesh, where boundary R vectors have ndegen > 1, against the conversion done in k space.
+    """
+    rng = np.random.default_rng(1)
+    irvec, ndegen = wigner_seitz(A, [4, 4, 4])
+    assert ndegen.max() > 1
+    nR = len(irvec)
+
+    def rand(*shape):
+        return rng.normal(size=shape) + 1j * rng.normal(size=shape)
+
+    ops = {
+        "HH_R": rand(nR, NUM_WANN, NUM_WANN),
+        "BB_R": rand(3, nR, NUM_WANN, NUM_WANN),
+        "CC_R": rand(3, 3, nR, NUM_WANN, NUM_WANN),
+    }
+    ops_I = to_tb_gauge(ops, irvec, A, TAU, ndegen)
+
+    tau = TAU @ A
+    for k in KPOINTS:
+
+        def fk(O_R, atoms_frac=None):
+            return fourier_transform_r_to_k(O_R, np.array([k]), irvec, ndegen, atoms_frac)[0]
+
+        H = fk(ops["HH_R"])
+        BB = [fk(ops["BB_R"][a]) for a in range(3)]
+        Dk = np.diag(np.exp(2j * np.pi * TAU @ k))
+        for a in range(3):
+            for b in range(3):
+                Ta, Tb = np.diag(tau[:, a]), np.diag(tau[:, b])
+                CC = fk(ops["CC_R"][a, b]) - Ta @ BB[b] - BB[a].conj().T @ Tb + Ta @ H @ Tb
+                np.testing.assert_allclose(fk(ops_I["CC_R"][a, b], TAU), Dk.conj().T @ CC @ Dk, rtol=0, atol=1e-10)
+
+    # ndegen(-R) != ndegen(R) is rejected.
+    ndegen_bad = ndegen.copy()
+    ndegen_bad[np.argmax(ndegen)] += 1
+    with pytest.raises(ValueError, match="ndegen"):
+        to_tb_gauge(ops, irvec, A, TAU, ndegen_bad)

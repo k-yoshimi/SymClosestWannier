@@ -31,7 +31,7 @@ $$
 
 All real-space matrices computed and written by `pw2cw` (`Hr`, `Sr`, `*_sym`, `seedname_hr.dat.cw`, `seedname_r.dat.cw`, `seedname_v.dat.cw`, `seedname.s.cw`, …) are in the wannier90 convention, whatever `tb_gauge` is. `seedname_tb.dat.cw` is written only with `tb_gauge = false`.
 
-For `postcw` with `tb_gauge = true`, the operators are converted once (`util/get_oper_R.py:to_tb_gauge`, called from `Response.set_operators`), with $\boldsymbol{\tau}$ in Cartesian coordinates and $m$, $n$ the row and column orbitals:
+For `postcw` with `tb_gauge = true`, `Response` keeps the operators in the wannier90 convention and converts them when they are passed to the calculation (`util/get_oper_R.py:to_tb_gauge`, called from `Response.operators`), with $\boldsymbol{\tau}$ in Cartesian coordinates and $m$, $n$ the row and column orbitals:
 
 | operator | conversion |
 | --- | --- |
@@ -43,4 +43,8 @@ For `postcw` with `tb_gauge = true`, the operators are converted once (`util/get
 
 k derivatives are taken in the same basis, $\partial_{\boldsymbol{k}} O^{\rm tb}(\boldsymbol{k}) = \sum_{\boldsymbol{R}} i(\boldsymbol{R}+\boldsymbol{\tau}_b-\boldsymbol{\tau}_a)\,e^{i\boldsymbol{k}\cdot(\boldsymbol{R}+\boldsymbol{\tau}_b-\boldsymbol{\tau}_a)} O^{\rm tb}_{ab}(\boldsymbol{R})/N_{\boldsymbol{R}}$ (`fourier_transform_r_to_k_new`, `fourier_transform_r_to_k_vec` with `pseudo=True`, `get_v_R` with `atoms_frac`).
 
-With these conversions, quantities evaluated with the complete Wannier-interpolation formulas (Berry curvature and anomalous Hall conductivity, Kubo conductivity, orbital magnetization, gyrotropic response, spin Hall conductivity) do not depend on `tb_gauge`; only their split into the J0, J1 and J2 terms does. Quantities that use only eigenvalues (band dispersion, density of states, Lindhard function) do not depend on it either. `tb_gauge` changes the results where the position operator is neglected, i.e. the velocity $\partial_{\boldsymbol{k}} H/\hbar$ used with `use_tb_approximation = true` (`get_v_R`), whose interband matrix elements depend on the orbital phases.
+`to_tb_gauge` assumes `ndegen(-R) = ndegen(R)`, which holds for the Wigner–Seitz supercell.
+
+With these conversions the operators in both gauges represent the same physical quantities, so the Wannier-interpolation formulas give the same Berry curvature, orbital magnetization (−2Im f, g, h) and spin current at each k point; only their split into the J0, J1 and J2 terms depends on the gauge (checked in `tests/test_tb_gauge.py`). This holds when `HH_R` is the Hamiltonian from which `BB_R` and `CC_R` are built. `postcw` may use a different Hamiltonian (`Hr_sym` with symmetrization, `hr_input`); `BB_R` and `CC_R` are then still converted with their own Hamiltonian, but quantities combining them with the given Hamiltonian (orbital magnetization, gyrotropic K) are approximate in either gauge and differ between the gauges by terms of the order of the difference of the two Hamiltonians.
+
+Quantities that use only eigenvalues (band dispersion, density of states, Lindhard function) do not depend on `tb_gauge`. Results do depend on it where the position operator is neglected: the velocity $\partial_{\boldsymbol{k}} H/\hbar$ used with `use_tb_approximation = true` (`get_v_R`) has interband matrix elements that depend on the orbital phases.

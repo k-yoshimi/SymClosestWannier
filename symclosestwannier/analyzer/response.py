@@ -60,7 +60,9 @@ class Response(dict):
         self._cwi = cwi
         self._cwm = cwm
         self._outfile = f"{self._cwi['seedname']}.cwpout"
-        self._tb_gauge_converted = False
+        # a given HH_R (Hr_sym, hr_input, ...) may differ from the Hamiltonian from which BB_R and CC_R are built.
+        self._HH_R_given = HH_R is not None
+        self._HH_R_oper = None
 
         # operators
         self["HH_R"] = HH_R  # <0n|H|Rm>
@@ -105,10 +107,33 @@ class Response(dict):
     # ==================================================
     @property
     def operators(self):
-        return {
-            k: self[k]
-            for k in ("HH_R", "AA_R", "v_R", "BB_R", "CC_R", "SS_R", "SR_R", "SHR_R", "SH_R", "SAA_R", "SBB_R")
-        }
+        """
+        operators in the gauge used by get_response.
+
+        The stored operators are in the wannier90 convention (v_R is built in the gauge given by tb_gauge); for
+        tb_gauge = true they are converted here, so that operators added by a later set_operators are converted as well.
+        """
+        d = {k: self[k] for k in ("HH_R", "AA_R", "v_R", "BB_R", "CC_R", "SS_R", "SR_R", "SHR_R", "SH_R", "SAA_R", "SBB_R")}
+
+        if not self._cwi["tb_gauge"]:
+            return d
+
+        keys = ("AA_R", "BB_R", "CC_R", "SS_R", "SR_R", "SHR_R", "SH_R")
+        ops = {k: d[k] for k in keys}
+        if d["BB_R"] is not None or d["CC_R"] is not None:
+            # the corrections of BB_R and CC_R need the Hamiltonian they are built from.
+            if not self._HH_R_given:
+                ops["HH_R"] = d["HH_R"]
+            else:
+                if self._HH_R_oper is None:
+                    self._HH_R_oper = get_oper_R("HH_R", self._cwi)
+                ops["HH_R"] = self._HH_R_oper
+
+        tau = tb_gauge_positions(self._cwi)
+        ops = to_tb_gauge(ops, self._cwi["irvec"], self._cwi["unit_cell_cart"], tau, self._cwi["ndegen"])
+        d.update({k: ops[k] for k in keys})
+
+        return d
 
     # ==================================================
     def set_operators(self):
@@ -200,15 +225,6 @@ class Response(dict):
         if self._cwi["spin_moment"]:
             if self["SS_R"] is None:
                 self["SS_R"] = get_oper_R("SS_R", self._cwi)
-
-        # get_oper_R gives operators in the wannier90 convention; get_response transforms them to k space with the orbital
-        # positions in the phase when tb_gauge = true (v_R is already built in that gauge).
-        if self._cwi["tb_gauge"] and not self._tb_gauge_converted:
-            tau = tb_gauge_positions(self._cwi)
-            keys = ("HH_R", "AA_R", "BB_R", "CC_R", "SS_R", "SR_R", "SHR_R", "SH_R")
-            d = to_tb_gauge({k: self[k] for k in keys}, self._cwi["irvec"], self._cwi["unit_cell_cart"], tau)
-            self.update(d)
-            self._tb_gauge_converted = True
 
         self._cwm.log(cw_end_set_operators_msg(), stamp=None, end="\n", file=self._outfile, mode="a")
 
