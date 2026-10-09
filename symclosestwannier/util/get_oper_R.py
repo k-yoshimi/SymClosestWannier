@@ -226,7 +226,11 @@ def get_CC_R(cwi):
     )
     CC_k = np.einsum("b,kbi,d,kdj,kbdmn->ijkmn", wb, bveck, wb, bveck, Hkb1b2, optimize=True)
 
-    CC_k = 0.5 * (CC_k + np.einsum("ijkmn->ijknm", CC_k).conj())
+    # CC_ab(k) is not hermitian for a != b; only CC_ba(k) = CC_ab(k)^† holds (as in wannier90 get_oper.F90).
+    for i in range(3):
+        CC_k[i, i] = 0.5 * (CC_k[i, i] + np.einsum("kmn->knm", CC_k[i, i]).conj())
+        for j in range(i + 1, 3):
+            CC_k[j, i] = np.einsum("kmn->knm", CC_k[i, j]).conj()
 
     if cwi["tb_gauge"]:
         atoms_list = list(cwi["atoms_frac_shift"].values())
