@@ -64,7 +64,7 @@ Rules:
 - wannier90 `_r.dat` has no `ndegen` block. In the folded form it is not self-contained, so the first version takes $\boldsymbol{r}$ from `_tb.dat`.
 - The consumer converts both forms to unit-weight coefficients on reading (expanding the folded form with $N_{\boldsymbol{R}}$ and the images), and all operators of one calculation must use the same image assignment.
 
-**[open]** Should symCW also write the "ndegen applied" form?
+Agreed with the MultiPie side: the exchange uses the "ndegen applied" form, one value per bond. MultiPie builds its bonds from symmetry, so a regular $\boldsymbol{R}$ grid is not needed. symCW is to write this form as well.
 
 ## Requirements on files
 
@@ -97,7 +97,7 @@ Let $A_{\rm win}$ be the lattice vectors of `seedname.win` and $A_{\rm model}$ t
 
 - `num_wann` equals the dimension of the model;
 - $A_{\rm win} = U A_{\rm ref}$ with an integer unimodular $U$, in the same Cartesian frame, where $A_{\rm ref} \approx A_{\rm model}$ (the model's lattice constants may differ from the DFT ones);
-- otherwise the input is rejected. MultiPie (develop) instead warns and continues with $U = 1$.
+- otherwise the input is rejected (agreed with the MultiPie side). MultiPie (develop) currently warns and continues with $U = 1$.
 
 Cartesian quantities (positions, $\boldsymbol{r}$) refer to the producer's lattice. The consumer therefore uses $A_{\rm ref} = U^{-1} A_{\rm win}$, not the nominal $A_{\rm model}$, for everything that enters the calculation: the conversions below, the Cartesian orbital positions, the reciprocal lattice and the Cartesian k derivatives. MultiPie (develop) currently builds these from $A_{\rm model}$. Using $A_{\rm model}$ with data from $A_{\rm win}$ would deform the model, which this version does not define.
 
@@ -145,12 +145,18 @@ An implementation of the pipeline is accepted only when tests of the following p
 
   Changing them needs a migration policy: keep the old files, or distinguish the formats explicitly.
 
+## Decisions
+
+Agreed with the MultiPie side (2026-10-10):
+
+1. Operators are passed as real-space files written by symCW or wannier90, and MultiPie maps them onto its basis order. MultiPie does not read `Ek`, `Uk`, `mmn`, … (`read_KS`).
+2. The Wannier calculation uses a primitive cell. A lattice that cannot be related to the model's primitive lattice is an error.
+3. The exchange uses one value per bond ("ndegen applied" form).
+4. symCW writes the symmetrized Hamiltonian (`_hr_sym.dat.cw`) in the plain wannier90 layout, in the basis order of MultiPie.
+
 ## Open items
 
-1. Operators other than $H$ and $\boldsymbol{r}$: passed as real-space files, or computed by MultiPie from `Ek`, `Uk`, `mmn`, … (`read_KS`)?
-2. The lattice tolerance, and whether a lattice mismatch is an error (the reference cell is primitive, see [Lattice](#lattice-and-reference-cell)).
-3. `_hr_sym.dat.cw`: plain wannier90 layout, and ket order.
-4. How the representation (folded or "ndegen applied"), the producer calculation and the basis correspondence are recorded: a small metadata file, or consumer input.
-5. "ndegen applied" output in symCW.
-6. MultiPie: do not apply `_wsvec.dat` to "ndegen applied" files; reject lattice mismatch instead of falling back to $U = 1$.
-7. Operators needed by MultiPie in later versions, and their layout.
+1. The lattice tolerance (MultiPie: 0.1 on the entries of $U$).
+2. How the representation (folded or "ndegen applied"), the producer calculation and the basis correspondence are recorded: a small metadata file, or consumer input.
+3. MultiPie: do not apply `_wsvec.dat` to "ndegen applied" files; reject lattice mismatch instead of falling back to $U = 1$.
+4. Operators needed by MultiPie in later versions, and their layout.
