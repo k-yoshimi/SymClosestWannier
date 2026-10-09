@@ -115,9 +115,9 @@ class CWInfo(dict):
                     [
                         d["calc_spreads"],
                         d["write_mmn"],
-                        d["write_rmn"],
+                        d["write_rmn"] and not d["tb_position"],
                         d["write_vmn"],
-                        d["write_tb"],
+                        d["write_tb"] and not d["tb_position"],
                         d["berry"],
                         d["gyrotropic"],
                     ]
