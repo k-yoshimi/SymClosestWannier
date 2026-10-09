@@ -92,8 +92,6 @@ def get_HH_R(cwi):
     else:
         atoms_frac = None
 
-    print(f"atoms_frac = {atoms_frac}")
-
     HH_R = fourier_transform_k_to_r(HH_k, kpoints, irvec, atoms_frac)
 
     return HH_R
@@ -223,8 +221,6 @@ def get_CC_R(cwi):
     _require(cwi, "Hkb1b2", "uHu", "CC_R")
     Hkb1b2 = np.array(cwi["Hkb1b2"])
 
-    print(f"Uk[kb2k[:, :], :, :].shape = {Uk[kb2k[:, :], :, :].shape}")
-    print(f"Hkb1b2.shape = {Hkb1b2.shape}")
     Hkb1b2 = np.einsum(
         "kblm, kbdlp, kdpn->kbdmn", np.conj(Uk[kb2k[:, :], :, :]), Hkb1b2, Uk[kb2k[:, :], :, :], optimize=True
     )
