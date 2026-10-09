@@ -103,7 +103,7 @@ Cartesian quantities (positions, $\boldsymbol{r}$) refer to the producer's latti
 
 MultiPie accepts deviations of $A_{\rm win} A_{\rm model}^{-1}$ from integers up to 0.1. **[open]** Is this the intended tolerance, or should it be tighter?
 
-A conventional DFT cell for a centred lattice (non-unimodular relation) is outside the first version. **[open]** Which cell is the reference?
+The Wannier calculation is done in a primitive cell (agreed with the MultiPie side): MultiPie builds its $H(\boldsymbol{R})$ in the primitive cell, and a primitive cell is cheaper. A conventional DFT cell for a centred lattice (non-unimodular relation) is not supported.
 
 ## Mapping onto a MultiPie model
 
@@ -148,7 +148,7 @@ An implementation of the pipeline is accepted only when tests of the following p
 ## Open items
 
 1. Operators other than $H$ and $\boldsymbol{r}$: passed as real-space files, or computed by MultiPie from `Ek`, `Uk`, `mmn`, … (`read_KS`)?
-2. Reference cell (primitive or conventional) and the lattice tolerance.
+2. The lattice tolerance, and whether a lattice mismatch is an error (the reference cell is primitive, see [Lattice](#lattice-and-reference-cell)).
 3. `_hr_sym.dat.cw`: plain wannier90 layout, and ket order.
 4. How the representation (folded or "ndegen applied"), the producer calculation and the basis correspondence are recorded: a small metadata file, or consumer input.
 5. "ndegen applied" output in symCW.
