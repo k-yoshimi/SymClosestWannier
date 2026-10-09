@@ -75,6 +75,10 @@ _default = {
     "kubo_adpt_smr_max": 1.0,
     "kubo_smr_fixed_en_width": 0.0,
     "kubo_smr_type": "gauss",
+    # shift current
+    "sc_eta": 0.04,
+    "sc_w_thr": 5.0,
+    "sc_use_eta_corr": True,
     # gyrotropic
     "gyrotropic": False,
     "gyrotropic_task": "",
@@ -207,6 +211,11 @@ class Win(dict):
                 - kubo_adpt_smr_max       : Overrides the adpt_smr_max global variable (float), [1.0].
                 - kubo_smr_fixed_en_width : Overrides the smr_fixed_en_width global variable (float), [0.0].
                 - kubo_smr_type           : Overrides the smr_type global variable (str), [gauss].
+
+            # shift current (berry_task = sc; also uses the kubo_* parameters)
+                - sc_eta                  : Broadening of the energy denominators of the generalized derivative (The units are [eV]) (float), [0.04].
+                - sc_w_thr                : Frequency window of the delta functions, in units of the smearing width (float), [5.0].
+                - sc_use_eta_corr         : Correct the finite sc_eta, Eq. (19) of PRB 103, 247101 (2021) (bool), [True].
 
             # morb
 
@@ -415,6 +424,10 @@ class Win(dict):
         d["kubo_smr_fixed_en_width"] = self._get_param_keyword(
             win_data, "kubo_smr_fixed_en_width", d["smr_fixed_en_width"], dtype=float
         )
+
+        d["sc_eta"] = self._get_param_keyword(win_data, "sc_eta", 0.04, dtype=float)
+        d["sc_w_thr"] = self._get_param_keyword(win_data, "sc_w_thr", 5.0, dtype=float)
+        d["sc_use_eta_corr"] = self._get_param_keyword(win_data, "sc_use_eta_corr", True, dtype=bool)
 
         d["gyrotropic"] = self._get_param_keyword(win_data, "gyrotropic", False, dtype=bool)
         gyrotropic_task = self._get_param_keyword(win_data, "gyrotropic_task", None, dtype=str)

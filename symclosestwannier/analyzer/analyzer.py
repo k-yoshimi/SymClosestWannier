@@ -132,8 +132,14 @@ def _analyzer(seedname, indir):
         if cwi["berry_task"] == "ahc":
             res.write_ahc()
 
+        if cwi["berry_task"] == "morb":
+            res.write_morb()
+
         if cwi["berry_task"] == "kubo":
             res.write_kubo()
+
+        if cwi["berry_task"] == "sc":
+            res.write_sc()
 
         if cwi["berry_task"] == "shc":
             res.write_shc()
