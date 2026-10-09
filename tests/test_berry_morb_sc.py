@@ -100,6 +100,27 @@ def test_shift_current_does_not_depend_on_tb_gauge():
 
 
 # ==================================================
+@pytest.mark.parametrize("sc_eta", [0.04, 0.2])
+def test_shift_current_eta_correction_removes_tb_gauge_dependence(sc_eta):
+    """
+    with a finite sc_eta the generalized derivative depends on the phase convention (tb_gauge); the correction of
+    Eq. (19) of Lihm, PRB 103, 247101 (2021) (sc_use_eta_corr) makes the two conventions agree.
+    """
+    model = Model()
+    sc = {
+        corr: [
+            quiet(gr.berry_get_sc, sc_cwi(model, g, 0.0, sc_eta=sc_eta, eta_corr=corr), operators(model, g))[1]
+            for g in (False, True)
+        ]
+        for corr in (False, True)
+    }
+    scale = np.abs(sc[True][0]).max()
+
+    assert np.abs(sc[False][1] - sc[False][0]).max() > 1e-6 * scale
+    np.testing.assert_allclose(sc[True][1], sc[True][0], rtol=0, atol=1e-12 * scale)
+
+
+# ==================================================
 def test_shift_current_frequencies_and_fermi_energy():
     model = Model()
     freq, sc = quiet(gr.berry_get_sc, sc_cwi(model, False, 0.0), operators(model, False))
