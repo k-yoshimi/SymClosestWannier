@@ -114,6 +114,8 @@ def _analyzer(seedname, indir):
     # ******************** #
 
     res = Response(cwi, cwm, HH_R=Hr)
+    res.calc_response()
+    res.calc_spin_moment()
 
     # ******************** #
     #         Band         #
