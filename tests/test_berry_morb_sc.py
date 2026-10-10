@@ -121,6 +121,30 @@ def test_shift_current_eta_correction_removes_tb_gauge_dependence(sc_eta):
 
 
 # ==================================================
+def test_shift_current_limits_and_invalid_widths():
+    """
+    sc_eta = 0 gives the limit of small sc_eta (not NaN), adaptive smearing gives finite values, and invalid widths are
+    rejected.
+    """
+    model = Model()
+    ops = operators(model, False)
+    sc0 = quiet(gr.berry_get_sc, sc_cwi(model, False, 0.0, sc_eta=0.0, eta_corr=True), ops)[1]
+    sc_small = quiet(gr.berry_get_sc, sc_cwi(model, False, 0.0, sc_eta=1e-6), ops)[1]
+    assert np.all(np.isfinite(sc0))
+    np.testing.assert_allclose(sc0, sc_small, rtol=0, atol=1e-8 * np.abs(sc_small).max())
+
+    cwi = {**sc_cwi(model, False, 0.0), "kubo_adpt_smr": True, "kubo_adpt_smr_fac": np.sqrt(2), "kubo_adpt_smr_max": 1.0}
+    cwi["B"] = 2 * np.pi * np.linalg.inv(A).T
+    sc_adpt = quiet(gr.berry_get_sc, cwi, ops)[1]
+    assert np.all(np.isfinite(sc_adpt)) and np.abs(sc_adpt).max() > 0
+
+    with pytest.raises(gr.SymCWInputError, match="smearing width"):
+        gr.berry_get_sc({**sc_cwi(model, False, 0.0), "kubo_smr_fixed_en_width": 0.0}, ops)
+    with pytest.raises(gr.SymCWInputError, match="sc_eta"):
+        gr.berry_get_sc(sc_cwi(model, False, 0.0, sc_eta=-0.1), ops)
+
+
+# ==================================================
 def test_shift_current_frequencies_and_fermi_energy():
     model = Model()
     freq, sc = quiet(gr.berry_get_sc, sc_cwi(model, False, 0.0), operators(model, False))

@@ -1150,10 +1150,17 @@ def berry_get_sc_klist(cwi, operators, kpoints, freq):
     ef = cwi["fermi_energy_list"][0]
     sc_eta = cwi["sc_eta"]
     sc_w_thr = cwi["sc_w_thr"]
-    use_eta_corr = cwi["sc_use_eta_corr"]
+    # the correction vanishes for sc_eta = 0, where its energy denominators may also vanish.
+    use_eta_corr = cwi["sc_use_eta_corr"] and sc_eta != 0
+    if sc_eta < 0:
+        raise SymCWInputError(f"sc_eta = {sc_eta} must not be negative.")
 
     smr_idx = _smearing_index(cwi["kubo_smr_type"])
     adpt = cwi["kubo_adpt_smr"]
+    if not adpt and cwi["kubo_smr_fixed_en_width"] <= 0:
+        raise SymCWInputError(
+            "the shift current needs a positive smearing width (kubo_smr_fixed_en_width or smr_fixed_en_width)."
+        )
     if adpt:
         Delta_k = kmesh_spacing_mesh(cwi["berry_kmesh"], cwi["B"])
 
@@ -1186,7 +1193,8 @@ def berry_get_sc_klist(cwi, operators, kpoints, freq):
         offdiag = ~np.eye(num_wann, dtype=bool)
         inv_dE = np.where(offdiag & (np.abs(dE) > 1e-7), 1.0 / np.where(dE == 0, 1, dE), 0.0)
         D0 = V_bar * inv_dE[None]  # D_h without eta
-        D = V_bar * (dE / (dE**2 + sc_eta**2) * offdiag)[None]  # principal value
+        # principal value; for sc_eta = 0 the same as D0
+        D = V_bar * (inv_dE if sc_eta == 0 else dE / (dE**2 + sc_eta**2) * offdiag)[None]
 
         # band velocities dE_n/dk_a, (n, a)
         v = wham_get_deleig(dHH[:, ik : ik + 1], E[None], U[None], cwi["use_degen_pert"], cwi["degen_thr"])[:, 0].T
@@ -1210,7 +1218,7 @@ def berry_get_sc_klist(cwi, operators, kpoints, freq):
 
         for n in range(num_wann):
             for m in range(num_wann):
-                if n == m or E[m] > eigval_max or E[n] > eigval_max:
+                if n == m or E[m] > eigval_max or E[n] > eigval_max or abs(E[n] - E[m]) < 1e-7:
                     continue
                 occ_fac = occ[n] - occ[m]
                 if abs(occ_fac) < 1e-10:
@@ -1218,6 +1226,7 @@ def berry_get_sc_klist(cwi, operators, kpoints, freq):
 
                 if adpt:
                     eta_smr = min(np.linalg.norm(v[m] - v[n]) * Delta_k * cwi["kubo_adpt_smr_fac"], cwi["kubo_adpt_smr_max"])
+                    eta_smr = max(eta_smr, 1e-6)  # as berry_get_kubo
                 else:
                     eta_smr = cwi["kubo_smr_fixed_en_width"]
 
