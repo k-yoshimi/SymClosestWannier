@@ -83,7 +83,8 @@ A reader may reject a file that does not satisfy these:
 
 - every $\boldsymbol{R}$ is listed with all `num_wann`² elements;
 - $-\boldsymbol{R}$ is listed for every $\boldsymbol{R}$, with $N_{-\boldsymbol{R}} = N_{\boldsymbol{R}}$;
-- $H(-\boldsymbol{R}) = H(\boldsymbol{R})^\dagger$ and $r_\alpha(-\boldsymbol{R}) = r_\alpha(\boldsymbol{R})^\dagger$ for each Cartesian component $\alpha$. MultiPie accepts $|O_{ab}(\boldsymbol{R}) - O_{ba}(-\boldsymbol{R})^*| \le 10^{-8} + 10^{-8}|O_{ab}(\boldsymbol{R})|$. The values in a file are rounded: wannier90 writes 6 decimals, symCW 8 significant digits. A file is hermitian to this tolerance only if the producer writes conjugate pairs consistently. In the `_hr.dat.cw` files of the symCW examples and tutorials, the pairs agree exactly;
+- $\boldsymbol{R} = 0$ is listed, with zeros if all on-site values vanish (the tb-gauge conversion of symCW, `to_tb_gauge`, needs it);
+- $H(-\boldsymbol{R}) = H(\boldsymbol{R})^\dagger$ and $r_\alpha(-\boldsymbol{R}) = r_\alpha(\boldsymbol{R})^\dagger$ for each Cartesian component $\alpha$. MultiPie accepts $|O_{ab}(\boldsymbol{R}) - O_{ba}(-\boldsymbol{R})^*| \le 10^{-8} + 10^{-8}|O_{ab}(\boldsymbol{R})|$. The values in a file are rounded: wannier90 writes 6 decimals, symCW 9 significant digits (`15.8E`). A file is hermitian to this tolerance only if the producer writes conjugate pairs consistently. In the `_hr.dat.cw` files of the symCW examples and tutorials, the pairs agree exactly;
 - in this profile, $\boldsymbol{R}$ and `ndegen` of the folded form are the Wigner–Seitz supercell of `mp_grid` (`seedname.win`). This is the interpolation convention of wannier90. Other $\boldsymbol{R}$ lists that reproduce the same values on the DFT mesh define different values between mesh points.
 
 ## Basis information
@@ -98,7 +99,7 @@ In the first version, the Wannier basis must equal the model basis up to a permu
 - the projection data must be present in `seedname.nnkp`. With `auto_projections` there are none, and the input is rejected;
 - local axes $z = (0,0,1)$, $x = (1,0,0)$, and for spinors the quantization axis $(0,0,1)$. MultiPie reads but does not use these axes;
 - one radial channel per site and angular momentum. MultiPie drops the radial index $r$;
-- each Wannier function is the orbital of its projection. This holds for the CW construction, which is a projection. Maximally localized Wannier functions can mix orbitals, and the matching projection labels alone do not guarantee this; the producer has to assert it.
+- each Wannier function is the orbital of its projection. This holds for the CW construction, which is a projection. Maximally localized Wannier functions can mix orbitals, and the matching projection labels alone do not guarantee this; the producer has to assert it with `basis.wannier_is_projection` in the [manifest](#manifest-of-an-export). The exchange always has a manifest, in the first version too. Files without one are legacy files (see [Normalization contract](#normalization-contract)): they must be in the projection order (`projection_index` the identity), and the consumer gives the assertion, which includes this order (the files carry no orbital labels, so the order cannot be checked), as explicit input together with the representation. A reader rejects the input if the assertion is absent or false.
 
 An explicit correspondence (`ket_wannier` in MultiPie) only selects the permutation. It does not replace the projection data, which are still needed for the origin shift $t$ and the offsets $L_a$.
 
@@ -142,9 +143,11 @@ An implementation of the pipeline is accepted only when tests of the following p
 - the actual mapping functions with a nontrivial `w2m`, $U \neq 1$, offsets and an origin shift;
 - $A_{\rm ref} \neq A_{\rm model}$ (lattice constants different from the model's);
 - folded and "ndegen applied" inputs with nontrivial `ndegen` and `_wsvec.dat`;
+- a Hamiltonian with no on-site values (the $\boldsymbol{R} = 0$ block written as zeros);
+- legacy files: accepted with the basis assertion given (which includes that the order is the projection order), rejected without it or with a declared order other than the projection order;
 - file round trips at file precision;
 - the final tb-gauge conversion;
-- the manifest checks: a wrong digest, a wrong `export_id`, a mismatched embedded Hamiltonian of `_tb.dat`, and an export order different from the projection order (`projection_index` not the identity), read back to the same matrices in the model basis.
+- the manifest checks: a wrong digest, a wrong `export_id`, a missing or false `wannier_is_projection`, a `projection_index` that is not a permutation, a mismatched embedded Hamiltonian of `_tb.dat`, and an export order different from the projection order (`projection_index` not the identity), read back to the same matrices in the model basis.
 
 ## Operator sets
 
@@ -158,11 +161,11 @@ Operators other than $H$ are only meaningful together with the calculation they 
 
 - `H_dft`: the Hamiltonian of the Wannier or CW construction (`Hr`);
 - `H_sym`: the symmetrized Hamiltonian (`Hr_sym`), if any. In symCW it has the same lattice, $\boldsymbol{R}$ list and `ndegen` as `Hr`, with symmetrized values, in the SAMB ket order; bringing it to the canonical order is a permutation;
-- variants with `scissors_shift` or with `shc_bandshift` (first shifted band and energy shift), if used.
+- variants with `scissors_shift` or with `shc_bandshift` (first shifted band and energy shift), if used. `first_band` is the 1-based index of the first shifted band among the bands of `seedname.eig` after `exclude_bands`, as `shc_bandshift_firstband` of wannier90; all bands from it upward are shifted. (symCW currently reads `shc_bandshift_firstband` as a float and uses it as a 0-based slice, `get_SHC_R` and `get_response.py`; this has to be fixed before such variants are exported.)
 
 Rules:
 
-1. **Construction Hamiltonian.** $BB$ and $CC$ name the variant they were built from (`built_from`); $SH$ names its variant, and $SHR$ names the same variant and the $SH$ it pairs with. The conversions of [convention.md](convention.md) (tb gauge, origin shift in [Mapping](#mapping-onto-a-multipie-model)) use the construction Hamiltonian of each operator. symCW builds $SH$ and $SHR$ with `shc_bandshift` applied and rejects `scissors_shift` for $BB$ and $CC$.
+1. **Construction Hamiltonian.** $BB$ and $CC$ name the variant they were built from (`built_from`); $SH$ names its variant, and $SHR$ names the same variant and the $SH$ it pairs with. The conversions of [convention.md](convention.md) (tb gauge, origin shift in [Mapping](#mapping-onto-a-multipie-model)) use the construction Hamiltonian of each operator. symCW builds $SH$ and $SHR$ with `shc_bandshift` applied and rejects `scissors_shift` for $BB$ and $CC$. Because the conversions combine operators, an export is closed under them: if $CC$ is present, so is $BB$ with the same `built_from`; if $SR$ is present, so is $SS$; if $SHR$ is present, so is the $SH$ it pairs with, with the same `built_from`; and every variant named in `built_from` is listed in `hamiltonians`. The reader checks this before any mapping or conversion.
 2. **Response Hamiltonian.** The manifest names the variant used for the responses (`response_hamiltonian`). If it differs from a construction Hamiltonian (for example `H_sym` with $BB$, $CC$ from `H_dft`), quantities that combine them (orbital magnetization, gyrotropic responses) are approximate, and the consumer reports this.
 3. **Embedded Hamiltonians.** The Hamiltonian contained in `_tb.dat` is declared as one of the variants, and the reader checks that it equals that variant (within the number format).
 4. **External Hamiltonians** (`hr_input` of `postcw`) belong to an export only if they are written into it as a variant, with a digest; otherwise the consumer rejects the combination.
@@ -204,7 +207,7 @@ For point-orbital models (no `mmn`) the phase centres are the orbital positions 
   "images": {"use_ws_distance": false, "centres_frac": null, "tolerance": null,
              "assignment_digest": "<sha256 of the sorted list of (R, m, n) with nonzero weight>"},
   "basis": {"num_wann": 18, "order": "ket_amn", "kets": ["..."], "projection_index": [1, 2, "..."],
-            "projection_centres_frac": [["..."]],
+            "wannier_is_projection": true, "projection_centres_frac": [["..."]],
             "spinors": true, "files": {"Fe.win": "<sha256>", "Fe.nnkp": "<sha256>"}},
   "energy": {"fermi_energy": 12.6279},
   "hamiltonians": {
@@ -225,12 +228,13 @@ For point-orbital models (no `mmn`) the phase centres are the orbital positions 
 }
 ```
 
-- `format_version` is the version of this schema. Which operators an export contains is given by `operators`; a reader rejects an unknown `format_version`, and rejects an export only if an operator it needs for the requested calculation is missing or unsupported.
+- `format_version` is the version of this schema. Which operators an export contains is given by `operators`; a reader rejects an unknown `format_version`. A listed operator that the requested calculation does not need may be unsupported by the reader and is then not used, but its file still passes the structural checks below (digest, `export_id`, $\boldsymbol{R}$ list); a file whose layout the reader cannot parse for these checks is an error; an operator it needs that is missing or unsupported is an error. All mandatory checks below apply in either case.
 - `operators.AA.source`: `mmn` (finite differences of the overlaps) or `projection_centres` (`tb_position`, a point-orbital approximation). With `projection_centres` the consumer computes with internal terms only (see [Matrices](#matrices-needed-by-each-calculation)), with the projection centres, mapped to the consumer's cell representatives, as phase centres.
+- `basis.projection_index` is a permutation of 1, ..., `num_wann`; a reader rejects anything else. `basis.wannier_is_projection` is `true` only if export function $i$ is the orbital of projection record `projection_index[i]` (see [Basis information](#basis-information)).
 - `export_id` is written in the header comment of every operator and Hamiltonian file of the export. `seedname.win` and `seedname.nnkp` are checked by their digests only.
 - `images.assignment_digest` is an opaque provenance token of the producer, not a description from which the assignment can be recomputed.
 
-Mandatory checks of a reader: `format_version`; digests of all listed files; the `export_id` in each operator and Hamiltonian file; lattice and basis against `seedname.win` and `seedname.nnkp` through `projection_index`; the embedded Hamiltonian of `_tb.dat`; and that every file has the same $\boldsymbol{R}$ list. The common $\boldsymbol{R}$ list only proves a common grid. That the per-pair image assignment is the same is guaranteed by provenance: all files are written by one writer pass with one assignment.
+Mandatory checks of a reader: `format_version`; digests of all listed files; the closure of the operator set under the conversions (rule 1 of [Operator sets](#operator-sets)); `projection_index` and `wannier_is_projection`; the `export_id` in each operator and Hamiltonian file; lattice and basis against `seedname.win` and `seedname.nnkp` through `projection_index`; the embedded Hamiltonian of `_tb.dat`; and that every file has the same $\boldsymbol{R}$ list. The common $\boldsymbol{R}$ list only proves a common grid. That the per-pair image assignment is the same is guaranteed by provenance: all files are written by one writer pass with one assignment.
 
 ## Matrices needed by each calculation
 
@@ -286,8 +290,8 @@ For point-orbital models (no `mmn`), the consumer uses the internal terms with t
 - The component order $(s, a)$ is that of symCW and wannier90. Conversions are done by the consumer's adapter, on the full tensors: the origin shift and the tb gauge of [convention.md](convention.md) on full $CC$, and only then, for wannier-berri, the transposition of $SR$, $SHR$ to its $(a, s)$ order and the pseudovector $i(CC_{ab} - CC_{ba})$ (as `symcw_wberri.to_wannierberri_system` does).
 - Hermiticity: $SS(-\boldsymbol{R}) = SS(\boldsymbol{R})^\dagger$ and $CC_{ab}(-\boldsymbol{R}) = CC_{ba}(\boldsymbol{R})^\dagger$. $BB$, $SH$, $SR$, $SHR$ have no such relation, and neither a writer nor a reader symmetrizes them; $CC$ is not antisymmetrized either.
 - Layout: the `_hr.dat` header (comment line with the operator name, its definition and the `export_id`, `num_wann`, `nrpts`, the `ndegen` block), then one line per $(\boldsymbol{R}, m, n)$ in the order of `_hr.dat` ($m$ fastest, then $n$, then $\boldsymbol{R}$): `n1 n2 n3 m n` followed by the real and imaginary parts of each component in the order of the table.
-- Number format **[open]**: at least 10 significant digits (wannier90 writes 6 decimals, symCW 8 significant digits). For the relations above to hold at the reader's tolerance, the writer first checks them on the unrounded arrays (an error there is a defect of the producer, not hidden by the export), then writes the conjugate partners from one array and checks the written file by reading it back.
-- Size: after the image expansion the file lists all `num_wann`² pairs for every $\boldsymbol{R}$ in the union of the images, most of them zero; with 9 components this grows quickly. **[open]** A sparse layout (only nonzero pairs) may be needed; a size benchmark on a realistic model is to be done before freezing the layout.
+- Number format **[open]**: at least 10 significant digits (wannier90 writes 6 decimals, symCW 9 significant digits). For the relations above to hold at the reader's tolerance, the writer first checks them on the unrounded arrays (an error there is a defect of the producer, not hidden by the export), then writes the conjugate partners from one array and checks the written file by reading it back.
+- Size: after the image expansion the file lists all `num_wann`² pairs for every $\boldsymbol{R}$ in the union of the images, most of them zero; with 9 components this grows quickly. **[open]** A sparse layout (only nonzero pairs) may be needed; a benchmark on a realistic model (file size and the peak memory of reading and mapping, where the orbital offsets enlarge the $\boldsymbol{R}$ list further) is to be done before freezing the layout.
 - The file names avoid symCW's `_sr.dat.cw` (the overlap matrix); names differing only in case are avoided because file systems may ignore case.
 
 ## Compatibility with existing symCW files
@@ -304,6 +308,8 @@ In addition to those of [Mapping](#mapping-onto-a-multipie-model), an implementa
 
 - write–read round trips of every operator at file precision, with nontrivial `ndegen`, image assignments and centres, and the component order of $CC$, $SR$, $SHR$ checked with unequal components;
 - conversion (tb gauge, origin shift) with a construction Hamiltonian different from the response Hamiltonian;
+- rejection of an operator set not closed under the conversions: $CC$ without $BB$, $BB$ and $CC$ built from different variants, $SR$ without $SS$, $SHR$ without its $SH$, a `built_from` variant not in `hamiltonians`;
+- `shc_bandshift` variants: with excluded bands, `first_band` = 1 and an interior `first_band`, the shifted eigenvalues are exactly those of bands `first_band`, …, `num_bands` of `seedname.eig` after `exclude_bands`;
 - rejection of: a file not in the manifest or with a wrong digest, a stale manifest, a mismatched embedded Hamiltonian, mixed exports, and a reader that would apply `_wsvec.dat` to an "ndegen applied" export;
 - responses from the read files equal to those of the producer's own operators (as `symcw-wberri` does for `postcw`), including the spin Hall conductivity with stated phase centres;
 - internal-terms-only calculations for a point-orbital model, and rejection of Qiao and Ryoo spin Hall conductivities in that mode.
