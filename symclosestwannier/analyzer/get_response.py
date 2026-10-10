@@ -1299,6 +1299,8 @@ def berry_get_sc(cwi, operators):
     """
     if cwi["num_fermi"] != 1:
         raise SymCWInputError("the shift current needs a single Fermi energy (fermi_energy in seedname.win).")
+    if cwi.get("zeeman_interaction"):
+        raise SymCWInputError("zeeman_interaction = true is not implemented for the shift current.")
 
     fmin, fmax, fstep = cwi["kubo_freq_min"], cwi["kubo_freq_max"], cwi["kubo_freq_step"]
     nfreq = int(round((fmax - fmin) / fstep)) + 1

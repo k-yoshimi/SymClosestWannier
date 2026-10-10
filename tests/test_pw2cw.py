@@ -128,3 +128,18 @@ def test_write_tb_with_tb_position(make_case):
         return
     system = get_system_tb(tb_file=str(workdir / f"{seedname}_tb.dat.cw"), berry=True, silent=True)
     np.testing.assert_allclose(system.wannier_centers_cart, tau, rtol=0, atol=1e-4)
+
+
+# ==================================================
+def test_write_rmn_with_tb_position(make_case):
+    """
+    the position operator from the projection centres is on-site: seedname_r.dat.cw is written, the R-dependence files
+    (which would be NaN) are not.
+    """
+    seedname = "graphene_pz"
+    workdir = make_case(seedname, extra="write_rmn = true\ntb_position = true")
+
+    cw_creator(seedname)
+
+    assert (workdir / f"{seedname}_r.dat.cw").stat().st_size > 0
+    assert not list(workdir.glob(f"{seedname}_r*_R_dep.dat.cw"))

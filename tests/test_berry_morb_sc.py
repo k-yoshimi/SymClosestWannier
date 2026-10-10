@@ -159,6 +159,9 @@ def test_shift_current_frequencies_and_fermi_energy():
     _, sc_full = quiet(gr.berry_get_sc, sc_cwi(model, False, E.max() + 1.0), operators(model, False))
     assert np.all(sc_full == 0)
 
+    with pytest.raises(gr.SymCWInputError, match="zeeman"):
+        gr.berry_get_sc({**sc_cwi(model, False, 0.0), "zeeman_interaction": True}, operators(model, False))
+
     cwi = sc_cwi(model, False, 0.0)
     cwi["num_fermi"] = 2
     with pytest.raises(gr.SymCWInputError, match="single Fermi energy"):

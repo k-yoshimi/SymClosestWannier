@@ -147,12 +147,14 @@ def _cw_creator(seedname, indir):
         filename = f"{cwi['seedname']}_r.dat.cw"
         cw_model.write_or(AA_R, filename, vec=True)
 
-        filename = f"{cwi['seedname']}_rx_R_dep.dat.cw"
-        cw_model.write_O_R_dependence(AA_R[0], filename, header=CWModel._O_R_dependence_header())
-        filename = f"{cwi['seedname']}_ry_R_dep.dat.cw"
-        cw_model.write_O_R_dependence(AA_R[1], filename, header=CWModel._O_R_dependence_header())
-        filename = f"{cwi['seedname']}_rz_R_dep.dat.cw"
-        cw_model.write_O_R_dependence(AA_R[2], filename, header=CWModel._O_R_dependence_header())
+        # with tb_position the position operator is on-site and diagonal: no dependence on R to show.
+        if not cwi["tb_position"]:
+            filename = f"{cwi['seedname']}_rx_R_dep.dat.cw"
+            cw_model.write_O_R_dependence(AA_R[0], filename, header=CWModel._O_R_dependence_header())
+            filename = f"{cwi['seedname']}_ry_R_dep.dat.cw"
+            cw_model.write_O_R_dependence(AA_R[1], filename, header=CWModel._O_R_dependence_header())
+            filename = f"{cwi['seedname']}_rz_R_dep.dat.cw"
+            cw_model.write_O_R_dependence(AA_R[2], filename, header=CWModel._O_R_dependence_header())
 
     if cwi["write_tb"]:
         AA_R = get_oper_R(position, cwi)
