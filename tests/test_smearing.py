@@ -13,10 +13,13 @@ import pytest
 from symclosestwannier.analyzer import get_response as gr
 from symclosestwannier.cw.win import Win
 from symclosestwannier.util.exceptions import SymCWInputError
+from symclosestwannier.util.get_oper_R import get_v_R
 
+from test_berry_morb_sc import sc_cwi
 from test_tb_gauge import A, Model, make_cwi
 
 N = 3
+SMR_TYPES = ("gauss", "m-p0", "m-p1")
 
 
 # ==================================================
@@ -49,6 +52,12 @@ def kubo_cwi(model, **kwargs):
         "degen_thr": 0.0,
         **kwargs,
     }
+
+
+def kubo_ops(model, cwi):
+    """operators of the model, with the velocity of the tight-binding approximation (berry_get_kubo_tb)."""
+    ops = model.operators_R()
+    return {**ops, "v_R": get_v_R(cwi, ops["HH_R"])}
 
 
 def gyro_cwi(model, **kwargs):
@@ -119,24 +128,39 @@ def test_smearing_index_invalid(smr_type):
 
 
 # ==================================================
-def test_methfessel_paxton():
-    """
-    m-pN is accepted; m-p0 is the Gaussian, m-p1 differs from it.
-    """
+def assert_methfessel_paxton(results):
+    """m-p0 is the Gaussian, m-p1 differs from it."""
+    assert all(np.all(np.isfinite(r)) for r in results.values())
+    scale = np.abs(results["gauss"]).max()
+    assert scale > 0
+    np.testing.assert_allclose(results["m-p0"], results["gauss"], rtol=0, atol=1e-12 * scale)
+    assert np.abs(results["m-p1"] - results["gauss"]).max() > 1e-3 * scale
+
+
+@pytest.mark.parametrize("f", [gr.berry_get_kubo, gr.berry_get_kubo_tb])
+def test_methfessel_paxton_kubo(f):
+    model = Model()
+    ops = kubo_ops(model, kubo_cwi(model))
+    assert_methfessel_paxton({t: quiet(f, kubo_cwi(model, kubo_smr_type=t), ops)[0] for t in SMR_TYPES})
+
+
+def test_methfessel_paxton_gyrotropic():
     model = Model()
     ops = model.operators_R()
-
-    kubo = {t: quiet(gr.berry_get_kubo, kubo_cwi(model, kubo_smr_type=t), ops)[0] for t in ("gauss", "m-p0", "m-p1")}
-    gyro = {t: quiet(gr.gyrotropic_get_K, gyro_cwi(model, gyrotropic_smr_type=t), ops) for t in ("gauss", "m-p0", "m-p1")}
-
-    scale = np.abs(kubo["gauss"]).max()
-    np.testing.assert_allclose(kubo["m-p0"], kubo["gauss"], rtol=0, atol=1e-12 * scale)
-    assert np.abs(kubo["m-p1"] - kubo["gauss"]).max() > 1e-3 * scale
+    gyro = {t: quiet(gr.gyrotropic_get_K, gyro_cwi(model, gyrotropic_smr_type=t), ops) for t in SMR_TYPES}
     for part in range(2):
-        scale = np.abs(gyro["gauss"][part]).max()
-        assert scale > 0
-        np.testing.assert_allclose(gyro["m-p0"][part], gyro["gauss"][part], rtol=0, atol=1e-12 * scale)
-        assert np.abs(gyro["m-p1"][part] - gyro["gauss"][part]).max() > 1e-3 * scale
+        assert_methfessel_paxton({t: K[part] for t, K in gyro.items()})
+
+
+def test_shift_current_smearing_type():
+    """the shift current follows kubo_smr_type."""
+    model = Model()
+    ops = model.operators_R()
+    assert_methfessel_paxton(
+        {t: quiet(gr.berry_get_sc, {**sc_cwi(model, False, 0.0), "kubo_smr_type": t}, ops)[1] for t in SMR_TYPES}
+    )
+    with pytest.raises(SymCWInputError, match="unknown smearing type"):
+        gr.berry_get_sc({**sc_cwi(model, False, 0.0), "kubo_smr_type": "lorentz"}, ops)
 
 
 # ==================================================
@@ -161,9 +185,10 @@ def test_gyrotropic_invalid_smearing():
             gr.gyrotropic_get_K(gyro_cwi(model, gyrotropic_smr_fixed_en_width=width), ops)
 
 
-def test_kubo_adaptive_smearing_allows_zero_fixed_width():
+@pytest.mark.parametrize("f", [gr.berry_get_kubo, gr.berry_get_kubo_tb])
+def test_kubo_adaptive_smearing_allows_zero_fixed_width(f):
     model = Model()
-    ops = model.operators_R()
+    ops = kubo_ops(model, kubo_cwi(model))
     B = 2 * np.pi * np.linalg.inv(A).T  # reciprocal lattice, for the adaptive width
-    H = quiet(gr.berry_get_kubo, kubo_cwi(model, kubo_adpt_smr=True, kubo_smr_fixed_en_width=0.0, B=B), ops)[0]
+    H = quiet(f, kubo_cwi(model, kubo_adpt_smr=True, kubo_smr_fixed_en_width=0.0, B=B), ops)[0]
     assert np.all(np.isfinite(H)) and np.abs(H).max() > 0
