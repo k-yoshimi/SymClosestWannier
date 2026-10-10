@@ -1412,9 +1412,7 @@ def berry_get_ahc(cwi, operators):
 
     num_k = np.prod(cwi["berry_kmesh"])
 
-    kpoints_chunks = np.split(
-        kpoints, [j for j in range(len(kpoints) // _num_proc, len(kpoints), len(kpoints) // _num_proc)]
-    )
+    kpoints_chunks = _split_kpoints(kpoints)
 
     res = Parallel(n_jobs=_num_proc, verbose=10)(delayed(berry_get_ahc_k)(kpt) for kpt in kpoints_chunks)
 
@@ -1475,6 +1473,10 @@ def berry_get_kubo(cwi, operators):
     Returns:
         tuple: Kubo_H, Kubo_AH, Kubo_H_spn, Kubo_AH_spn.
     """
+    if cwi["spin_decomp"]:
+        # the spin of the bands (spn_nk) that selects the channel is not computed.
+        raise SymCWInputError("spin_decomp = true is not implemented for the optical conductivity.")
+
     atoms_frac = tb_gauge_positions(cwi)
 
     ef = cwi["fermi_energy"]
@@ -1641,9 +1643,7 @@ def berry_get_kubo(cwi, operators):
 
     num_k = np.prod(cwi["berry_kmesh"])
 
-    kpoints_chunks = np.split(
-        kpoints, [j for j in range(len(kpoints) // _num_proc, len(kpoints), len(kpoints) // _num_proc)]
-    )
+    kpoints_chunks = _split_kpoints(kpoints)
 
     res = Parallel(n_jobs=_num_proc, verbose=10)(delayed(berry_get_kubo_k)(kpt) for kpt in kpoints_chunks)
 
@@ -1701,6 +1701,10 @@ def berry_get_kubo_tb(cwi, operators):
     Returns:
         tuple: Kubo_H, Kubo_AH, Kubo_H_spn, Kubo_AH_spn.
     """
+    if cwi["spin_decomp"]:
+        # the spin of the bands (spn_nk) that selects the channel is not computed.
+        raise SymCWInputError("spin_decomp = true is not implemented for the optical conductivity.")
+
     atoms_frac = tb_gauge_positions(cwi)
 
     ef = cwi["fermi_energy"]
@@ -1863,9 +1867,7 @@ def berry_get_kubo_tb(cwi, operators):
 
     num_k = np.prod(cwi["berry_kmesh"])
 
-    kpoints_chunks = np.split(
-        kpoints, [j for j in range(len(kpoints) // _num_proc, len(kpoints), len(kpoints) // _num_proc)]
-    )
+    kpoints_chunks = _split_kpoints(kpoints)
 
     res = Parallel(n_jobs=_num_proc, verbose=10)(delayed(berry_get_kubo_k)(kpt) for kpt in kpoints_chunks)
 
@@ -2257,9 +2259,7 @@ def berry_get_shc(cwi, operators):
 
     num_k = np.prod(cwi["berry_kmesh"])
 
-    kpoints_chunks = np.split(
-        kpoints, [j for j in range(len(kpoints) // _num_proc, len(kpoints), len(kpoints) // _num_proc)]
-    )
+    kpoints_chunks = _split_kpoints(kpoints)
 
     res = Parallel(n_jobs=_num_proc, verbose=10)(delayed(berry_get_shc_k)(kpoints) for kpoints in kpoints_chunks)
 

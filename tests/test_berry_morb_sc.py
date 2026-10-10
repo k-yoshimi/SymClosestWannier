@@ -289,3 +289,58 @@ def test_berry_main_and_output(tmp_path, monkeypatch, task):
         np.testing.assert_allclose(data[:, 0], res["sc_freq"])
         np.testing.assert_allclose(data[:, 1], res["sc"][0, 5], rtol=1e-12, atol=0)  # x, (y, z)
         assert len(list(tmp_path.glob("model-sc_*.dat"))) == 18
+
+
+# ==================================================
+def test_more_processes_than_k_points(monkeypatch):
+    """the k points were split with a step len(kpoints) // number of processes, which is zero for small meshes."""
+    model = Model()
+    cwi = {
+        **morb_cwi(model, False, [-0.45, 3.0]),
+        "berry_kmesh": [2, 2, 1],
+        "berry_curv_unit": "ang2",
+        "berry_curv_adpt_kmesh": [1, 1, 1],
+        "berry_curv_adpt_kmesh_thresh": 1e30,
+        "unit_cell_volume": V,
+    }
+    ops = operators(model, False)
+    ahc = quiet(gr.berry_get_ahc, cwi, ops)
+    monkeypatch.setattr(gr, "_num_proc", 9)
+    np.testing.assert_allclose(quiet(gr.berry_get_ahc, cwi, ops), ahc, rtol=0, atol=1e-10)
+
+
+def test_kubo_spin_decomposition_is_rejected():
+    for f in (gr.berry_get_kubo, gr.berry_get_kubo_tb):
+        with pytest.raises(gr.SymCWInputError, match="spin_decomp"):
+            f({"spin_decomp": True}, {})
+
+
+# ==================================================
+@pytest.mark.parametrize("task, gyrotropic", [("ahc", False), ("kubo", True)])
+def test_tb_approximation_only_for_kubo(tmp_path, monkeypatch, task, gyrotropic):
+    import sys
+
+    from test_tb_gauge import make_response
+
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    monkeypatch.chdir(".")
+    model = Model()
+    res, _ = make_response(tmp_path, monkeypatch, model, False, task)
+    res._cwi.update(use_tb_approximation=True, gyrotropic=gyrotropic)
+    with pytest.raises(gr.SymCWInputError, match="use_tb_approximation"):
+        res.set_operators()
+
+
+def test_zeeman_interaction_builds_the_spin_operator(tmp_path, monkeypatch):
+    import sys
+
+    from test_tb_gauge import make_response
+
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    monkeypatch.chdir(".")
+    model = Model()
+    res, ops = make_response(tmp_path, monkeypatch, model, False, "ahc")
+    assert res["SS_R"] is None
+    res._cwi.update(zeeman_interaction=True)
+    res.set_operators()
+    np.testing.assert_array_equal(res["SS_R"], ops["SS_R"])

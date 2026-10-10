@@ -22,6 +22,7 @@ import numpy as np
 
 from symclosestwannier.util.get_oper_R import get_oper_R, to_tb_gauge
 from symclosestwannier.util.utility import tb_gauge_positions
+from symclosestwannier.util.exceptions import SymCWInputError
 from symclosestwannier.analyzer.get_response import berry_main, boltzwann_main, gyrotropic_main, spin_moment_main
 
 from symclosestwannier.util.message import (
@@ -144,6 +145,15 @@ class Response(dict):
         self._cwm.set_stamp()
 
         if self._cwi["use_tb_approximation"]:
+            # only the optical conductivity has a tight-binding version (berry_get_kubo_tb).
+            if self._cwi["berry"] and self._cwi["berry_task"] != "kubo":
+                raise SymCWInputError(
+                    f"use_tb_approximation = true is available only for berry_task = kubo, not {self._cwi['berry_task']}."
+                )
+            if self._cwi["gyrotropic"]:
+                raise SymCWInputError("use_tb_approximation = true is not available for gyrotropic.")
+
+        if self._cwi["use_tb_approximation"]:
             self["HH_R"] = get_oper_R("HH_R", self._cwi) if self["HH_R"] is None else self["HH_R"]
 
             if self._cwi["berry_task"] == "kubo":
@@ -220,6 +230,10 @@ class Response(dict):
                 if win.eval_K:
                     self["BB_R"] = get_oper_R("BB_R", self._cwi) if self["BB_R"] is None else self["BB_R"]
                     self["CC_R"] = get_oper_R("CC_R", self._cwi) if self["CC_R"] is None else self["CC_R"]
+
+        # the Zeeman term needs the spin operator in every response.
+        if self._cwi.get("zeeman_interaction") and self["SS_R"] is None:
+            self["SS_R"] = get_oper_R("SS_R", self._cwi)
 
         # spin magnetic moment
         if self._cwi["spin_moment"]:
