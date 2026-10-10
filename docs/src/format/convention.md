@@ -23,7 +23,7 @@ with $N_{\boldsymbol{R}}$ = `ndegen` and the sum over the DFT k mesh (`fourier_t
 
 ## tb_gauge
 
-With `tb_gauge = true`, the Bloch basis contains the orbital positions $\boldsymbol{\tau}_b$ (the position of the atom of orbital $b$, `atoms_frac` of `seedname.win`), $|\phi^{\rm tb}_{b}(\boldsymbol{k})\rangle = e^{i\boldsymbol{k}\cdot\boldsymbol{\tau}_b}|\phi_{b}(\boldsymbol{k})\rangle$, and k-space matrices are
+With `tb_gauge = true`, the Bloch basis contains the orbital positions $\boldsymbol{\tau}_b$ (the projection centre of orbital $b$ in `seedname.nnkp`, `util/utility.py:orbital_positions`; for projections on atoms this is the atom position), $|\phi^{\rm tb}_{b}(\boldsymbol{k})\rangle = e^{i\boldsymbol{k}\cdot\boldsymbol{\tau}_b}|\phi_{b}(\boldsymbol{k})\rangle$, and k-space matrices are
 $$
 O^{\rm tb}_{ab}(\boldsymbol{k}) = \sum_{\boldsymbol{R}} \frac{1}{N_{\boldsymbol{R}}} e^{i\boldsymbol{k}\cdot(\boldsymbol{R}+\boldsymbol{\tau}_b-\boldsymbol{\tau}_a)} O^{\rm tb}_{ab}(\boldsymbol{R})
 $$
