@@ -160,6 +160,8 @@ class CWInfo(dict):
                     continue
 
                 info = C(topdir, seedname, formatted=d["uHu_formatted"])
+            elif name == "spn":
+                info = C(topdir, seedname, formatted=d["spn_formatted"])
             else:
                 info = C(topdir, seedname)
 

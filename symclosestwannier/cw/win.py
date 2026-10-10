@@ -3,6 +3,8 @@ Win manages input file for wannier90.x, seedname.win file.
 """
 
 import os
+import re
+
 import numpy as np
 
 from gcoreutils.nsarray import NSArray
@@ -34,6 +36,7 @@ _default = {
     "atoms_cart": None,
     "spinors": False,
     "spin_moment": False,
+    "spn_formatted": False,
     #
     "kmesh": [1, 1, 1],
     "kmesh_spacing": [1, 1, 1],
@@ -154,6 +157,7 @@ class Win(dict):
                 - atoms_cart*     : atomic positions in cartesian coordinates, {atom: [rx,ry,rz]} [None].
                 - spinors         : WFs are spinors? (bool) [False].
                 - spin_moment     : Determines whether to evaluate the spin moment (bool), [False].
+                - spn_formatted   : Read a formatted seedname.spn file (bool), [False].
                 - dis_num_iter*   : # of iterations for disentanglement (int), [0].
                 - num_iter*       : # of iterations for maximal localization (int), [200].
                 - dis_froz_max    : top of the inner (frozen) energy window (float), [+100000].
@@ -273,6 +277,7 @@ class Win(dict):
 
         d["spinors"] = self._get_param_keyword(win_data, "spinors", False, dtype=bool)
         d["spin_moment"] = self._get_param_keyword(win_data, "spin_moment", False, dtype=bool)
+        d["spn_formatted"] = self._get_param_keyword(win_data, "spn_formatted", False, dtype=bool)
 
         for i, line in enumerate(win_data_lower):
             if "begin kpoints" in line:
@@ -566,6 +571,10 @@ class Win(dict):
 
         if data is None:
             return None
+
+        if dtype is float and isinstance(data, str):
+            # Fortran double precision exponent, e.g. 30.0d0
+            data = re.sub(r"(?<=[0-9.])[dD](?=[+-]?[0-9])", "e", data.strip())
 
         return dtype(data)
 

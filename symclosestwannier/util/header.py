@@ -111,6 +111,7 @@ win_info = {
     "atoms_cart": "atomic positions in cartesian coordinates, {atom: [rx,ry,rz]} [None].",
     "spinors": "WFs are spinors? (bool) [False].",
     "spin_moment": "Determines whether to evaluate the spin moment (bool), [False].",
+    "spn_formatted": "Read a formatted seedname.spn file (bool), [False].",
     #
     "kmesh": "dimensions of the Monkhorst-Pack grid of k-points for response calculation (list), [[1, 1, 1]].",
     "kmesh_spacing": "minimum distance for neighboring k points along each of the three directions in k space (list), [1,1,1]].",
