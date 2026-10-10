@@ -53,6 +53,7 @@ from symclosestwannier.util.header import (
     O_R_dependence_header,
 )
 from symclosestwannier.util.utility import (
+    ket_samb_list,
     fermi,
     fermi_dt,
     weight_proj,
@@ -787,7 +788,7 @@ class CWModel(dict):
         else:
             select = {"Gamma": self._cwi["irreps"]}
 
-        combined_samb_matrix = self._cwi._mm.get_combined_samb_matrix(fmt="value", digit=15, select=select)
+        combined_samb_matrix = self._cwi._mm.get_combined_samb_matrix(fmt="value", digit=15, select=select, bond=False)
 
         ### sign chagne for odd-parity site- and bond-cluster multipoles (L-handed CoSi) ###
         # combined_samb = self._cwi._mm["combined_samb"]
@@ -833,7 +834,7 @@ class CWModel(dict):
 
         ###
 
-        ket_samb = self._cwi._mm["full_matrix"]["ket"]
+        ket_samb = ket_samb_list(self._cwi._mm)
         ket_amn = self._cwi.get("ket_amn", ket_samb)
 
         ###
@@ -997,7 +998,7 @@ class CWModel(dict):
             if vi.plus_set == 1
         }
         atoms_frac_samb = [
-            site_dict[atom + "_" + str(sl)] for atom, sl, rank, orbital in self._cwi._mm["full_matrix"]["ket"]
+            site_dict[atom + "_" + str(sl)] for atom, sl, rank, orbital in ket_samb_list(self._cwi._mm)
         ]
 
         msg = "    - constructing symmetrized TB Hamiltonian ... "
