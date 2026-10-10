@@ -72,6 +72,24 @@ _beta_S = [0, 1, 2, 1, 2, 2]
 
 
 # ==================================================
+def _single_fermi_energy(cwi, what):
+    """
+    the Fermi energy of the calculations at a single Fermi energy, fermi_energy_list[0] as in wannier90; a Fermi energy
+    scan is rejected.
+
+    Args:
+        cwi (CWInfo): CWInfo.
+        what (str): the calculation, for the error message.
+
+    Returns:
+        float: Fermi energy (eV).
+    """
+    if cwi["num_fermi"] != 1:
+        raise SymCWInputError(f"{what} needs a single Fermi energy (fermi_energy in seedname.win), not a scan.")
+    return cwi["fermi_energy_list"][0]
+
+
+# ==================================================
 def spin_moment_main(cwi, operators):
     """
     Computes the spin magnetic moments, Ms_x, Ms_y, Ms_z.
@@ -83,6 +101,8 @@ def spin_moment_main(cwi, operators):
     Returns:
         dict: Ms_x, Ms_y, Ms_z.
     """
+    ef = _single_fermi_energy(cwi, "the spin moment")
+
     d = {"Ms_x": 0.0, "Ms_y": 0.0, "Ms_z": 0.0}
 
     if not cwi["spinors"]:
@@ -121,7 +141,7 @@ def spin_moment_main(cwi, operators):
 
             spn_x, spn_y, spn_z = spn_operator(pauli_spn, g_factor, dim) / mu_B
 
-            return thermal_avg([spn_x, spn_y, spn_z], E, U, cwi["fermi_energy"], T_Kelvin=0.0, num_k=num_k)
+            return thermal_avg([spn_x, spn_y, spn_z], E, U, ef, T_Kelvin=0.0, num_k=num_k)
 
         # ==================================================
         kpoints_chunks = np.split(kpoints, [j for j in range(1000, len(kpoints), 1000)])
@@ -1478,10 +1498,10 @@ def berry_get_kubo(cwi, operators):
     if cwi["spin_decomp"]:
         # the spin of the bands (spn_nk) that selects the channel is not computed.
         raise SymCWInputError("spin_decomp = true is not implemented for the optical conductivity.")
+    ef = _single_fermi_energy(cwi, "the optical conductivity")
 
     atoms_frac = tb_gauge_positions(cwi)
 
-    ef = cwi["fermi_energy"]
     berry_kmesh = cwi["berry_kmesh"]
     num_wann = cwi["num_wann"]
 
@@ -1706,10 +1726,10 @@ def berry_get_kubo_tb(cwi, operators):
     if cwi["spin_decomp"]:
         # the spin of the bands (spn_nk) that selects the channel is not computed.
         raise SymCWInputError("spin_decomp = true is not implemented for the optical conductivity.")
+    ef = _single_fermi_energy(cwi, "the optical conductivity")
 
     atoms_frac = tb_gauge_positions(cwi)
 
-    ef = cwi["fermi_energy"]
     berry_kmesh = cwi["berry_kmesh"]
     num_wann = cwi["num_wann"]
 
@@ -2108,7 +2128,7 @@ def berry_get_shc_klist(cwi, operators, kpoints, band=False):
         lfermi = False
 
     if lfreq:
-        ef = cwi["fermi_energy"]
+        ef = _single_fermi_energy(cwi, "the ac spin Hall conductivity (shc_freq_scan = true)")
         occ_freq = fermi(E - ef, T=0.0, unit="eV")
     elif lfermi:
         fermi_energy_list = cwi["fermi_energy_list"]
@@ -2179,6 +2199,9 @@ def berry_get_shc(cwi, operators):
     Returns:
         ndarray: Spin Hall conductivity.
     """
+    if cwi["shc_freq_scan"]:
+        _single_fermi_energy(cwi, "the ac spin Hall conductivity (shc_freq_scan = true)")
+
     num_fermi = cwi["num_fermi"]
 
     berry_kmesh = cwi["berry_kmesh"]
