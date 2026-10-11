@@ -330,3 +330,4 @@ Agreed with the MultiPie side (2026-10-10):
 3. MultiPie: do not apply `_wsvec.dat` to "ndegen applied" files; reject lattice mismatch instead of falling back to $U = 1$.
 4. File names (including the new name of the plain symmetrized Hamiltonian), layout (dense or sparse) and number format of the operators without a wannier90 layout.
 5. Which of these operators MultiPie needs, and when.
+6. Symmetrizing the operators other than $H$. Only $H$ is symmetrized, in symCW (`Hr_sym`) and in the `symcw` mode of MultiPie. $\boldsymbol{r}$, $BB$, $CC$, $SS$ and the spin-current operators keep the symmetry breaking of the DFT data, so responses with a symmetrized $H$ are approximate (rule 2 of [Operator sets](#operator-sets)). In the `samb` mode, $\boldsymbol{r}$ comes from the ket positions (point orbitals) and is symmetric. To be decided: whether these operators are also expanded in SAMBs, which ones, and whether the export records which operators are symmetrized.
