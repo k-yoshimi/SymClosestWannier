@@ -327,31 +327,6 @@ class CWModel(dict):
 
             self._cwm.log("done", file=self._outfile, mode="a")
 
-        with open(f"{self._cwi['seedname']}.amn_window.cw", "w") as fp:
-
-            Ak_ = Ak
-            # Ak_ = np.array(self._cwi["Ak"], dtype=complex)
-
-            def U_mat(k):
-                u, _, vd = np.linalg.svd(Ak_[k], full_matrices=False)
-                return u @ vd
-
-            Uk = np.array([U_mat(k) for k in range(self._cwi["num_k"])])
-
-            fp.write("Created by amn.py {}\n".format(datetime.datetime.now().strftime("on %d%b%Y at %H:%M:%S")))
-            fp.write(
-                "       {:5d}       {:5d}       {:5d}\n".format(
-                    self._cwi["num_bands"], self._cwi["num_k"], self._cwi["num_wann"]
-                )
-            )
-            for ik, m, n in itertools.product(
-                range(self._cwi["num_k"]), range(self._cwi["num_wann"]), range(self._cwi["num_bands"])
-            ):
-                # num_bands, num_wann, nk
-                fp.write(
-                    "{0:5d}{1:5d}{2:5d}{3.real:18.12f}{3.imag:18.12f}\n".format(n + 1, m + 1, ik + 1, Uk[ik, n, m])
-                )
-
         msg = "   - constructing TB Hamiltonian ... "
         self._cwm.log(msg, None, end="", file=self._outfile, mode="a")
         self._cwm.set_stamp()
@@ -401,6 +376,7 @@ class CWModel(dict):
 
         #####
 
+        # projections with the window function and proj_min applied (written by write_windowed_amn).
         self._cwi["Ak"] = Ak
         self._cwi["Uoptk"] = np.array([np.identity(self._cwi["num_wann"], dtype=complex)] * self._cwi["num_k"])
         self._cwi["Udisk"] = Uk
@@ -657,11 +633,7 @@ class CWModel(dict):
         self._cwm.log(msg, None, end="\n", file=self._outfile, mode="a")
         self._cwm.set_stamp()
 
-        if self._cwi["irreps"] == "all":
-            select = {}
-        else:
-            select = {"Gamma": self._cwi["irreps"]}
-
+        select = CWModel.samb_select(self._cwi["irreps"])
         combined_samb_matrix = self._cwi._mm.get_combined_samb_matrix(fmt="value", digit=15, select=select, bond=False)
 
 
@@ -1136,6 +1108,25 @@ class CWModel(dict):
             ndarray: lattice or k points.
         """
         return dict_to_matrix(Or_dict, dim)
+
+    # ==================================================
+    @staticmethod
+    def samb_select(irreps):
+        """
+        select condition of SAMBs by irreps in seedname.cwin.
+
+        Args:
+            irreps (str/list): "all" (all irreps), "full" (only the identity irrep) or list of irreps.
+
+        Returns:
+            dict: select condition of MaterialModel.get_combined_samb_matrix.
+        """
+        if irreps == "all":
+            return {}
+        elif irreps == "full":
+            return {"Gamma": "IR"}
+        else:
+            return {"Gamma": irreps}
 
     # ==================================================
     @classmethod

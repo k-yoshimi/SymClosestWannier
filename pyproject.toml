@@ -10,7 +10,6 @@ dependencies = [
     "sympy",
     "joblib",
     "click",
-    "gcoreutils",
     "multipie",
     "xmltodict",
     "fortio",
@@ -49,7 +48,7 @@ Issues = "https://github.com/CMT-MU/SymClosestWannier/issues"
 dev = [
     "pytest",
     "black",
-    "jupyter-book",
+    "jupyter-book<2",
     "ghp-import",
     "multipie",
     "qtdraw",
